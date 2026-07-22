@@ -23,6 +23,8 @@ use SEOAuto\SEOHelper\Rest\Audit_Rest_Controller;
 use SEOAuto\SEOHelper\Rest\Rest_Controller;
 use SEOAuto\SEOHelper\Seo\Seo_Facade;
 use SEOAuto\SEOHelper\SeoAudit\Audit_Job_Runner;
+use SEOAuto\SEOHelper\Updater\Update_Admin;
+use SEOAuto\SEOHelper\Updater\Update_Manager;
 
 final class Plugin {
 
@@ -38,6 +40,7 @@ final class Plugin {
 	private Seo_Facade $seo;
 	private Cron_Scheduler $cron;
 	private Audit_Job_Runner $audit_jobs;
+	private Update_Manager $updater;
 
 	public static function instance(): self {
 		if ( null === self::$instance ) {
@@ -71,6 +74,11 @@ final class Plugin {
 			$this->seo,
 			$this->audit
 		);
+		$this->updater     = new Update_Manager(
+			$this->connection,
+			$this->entitlement,
+			$this->audit
+		);
 	}
 
 	public function boot(): void {
@@ -99,6 +107,8 @@ final class Plugin {
 		$this->seo->register_hooks();
 		$this->cron->register();
 		$this->audit_jobs->register();
+		$this->updater->register();
+		( new Update_Admin( $this->updater ) )->register();
 
 		\SEOAuto\SEOHelper\Post\Schema::maybe_upgrade();
 	}
@@ -117,5 +127,9 @@ final class Plugin {
 
 	public function audit_jobs(): Audit_Job_Runner {
 		return $this->audit_jobs;
+	}
+
+	public function updater(): Update_Manager {
+		return $this->updater;
 	}
 }

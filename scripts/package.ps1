@@ -38,6 +38,14 @@ foreach ($item in $include) {
     }
 }
 
+# Strip development / secret artifacts if present under includes/docs.
+$denyNames = @('.env', '.env.local', '.git', '.gitignore', 'phpunit.xml', 'composer.json', 'composer.lock')
+Get-ChildItem -Path $Stage -Recurse -Force | Where-Object {
+    $denyNames -contains $_.Name -or $_.FullName -match '\\(\.git|tests|vendor|node_modules|logs|cache)\\'
+} | ForEach-Object {
+    Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 if (-not (Test-Path (Join-Path $Stage 'readme.txt'))) {
     throw 'readme.txt missing from package'
 }
@@ -81,6 +89,13 @@ try {
 }
 
 $size = (Get-Item $ZipPath).Length
+$sha  = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "Created: $ZipPath ($([math]::Round($size/1KB, 1)) KB)" -ForegroundColor Green
 Write-Host "Verified: $MainEntry" -ForegroundColor Green
+Write-Host "SHA256: $sha" -ForegroundColor Cyan
 Get-ChildItem $ZipPath | Format-List Name, Length, LastWriteTime
+
+# Sidecar for release registry upload
+$shaFile = Join-Path $Root 'seoauto-seo-helper.zip.sha256'
+Set-Content -Path $shaFile -Value $sha -NoNewline
+Write-Host "Wrote: $shaFile" -ForegroundColor Cyan

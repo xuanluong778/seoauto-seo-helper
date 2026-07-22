@@ -29,6 +29,7 @@ SEOAuto SEO Helper ghép nối site WordPress với nền tảng SEOAuto qua mã
 = 1.1.0-dev =
 * Phase 1: SEO Audit Engine (scan-only) — WP-Cron batch jobs, issue store, admin Audit/Jobs, REST /audit/* + /jobs/{id}.
 * Feature gate: seo_audit. LOCKED blocks new scans; keeps historical results.
+* Private Plugin Updater: Update URI seoauto.vn, HMAC update check, signed short-lived ZIP download, SHA-256 verify.
 
 = 1.0.4 =
 * Fix fatal error trên PHP 8.1: thay kiểu `true|WP_Error` (chỉ có từ PHP 8.2) bằng `bool|WP_Error`.

@@ -12,6 +12,7 @@
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       seoauto-seo-helper
  * Domain Path:       /languages
+ * Update URI:        https://seoauto.vn/plugin/seoauto-seo-helper
  *
  * @package SEOAuto\SEOHelper
  */

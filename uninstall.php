@@ -38,6 +38,8 @@ $options = array(
 	'last_api_error',
 	'audit_log_retention_days',
 	'allowed_post_types',
+	'update_check_cache',
+	'update_channel',
 );
 
 foreach ( $options as $key ) {

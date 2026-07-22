@@ -163,6 +163,7 @@ final class Overview_Page {
 					<a class="button button-secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=' . Admin_Menu::SLUG_LOGS ) ); ?>">
 						<?php echo esc_html__( 'Xem nhật ký', 'seoauto-seo-helper' ); ?>
 					</a>
+					<?php \SEOAuto\SEOHelper\Updater\Update_Admin::render_check_form(); ?>
 				</p>
 			</div>
 		</div>
