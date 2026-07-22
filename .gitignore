@@ -1,0 +1,10 @@
+/vendor/
+/dist/
+/.zip-verify/
+*.zip
+composer.lock
+.DS_Store
+Thumbs.db
+*.log
+.phpunit.result.cache
+/node_modules/

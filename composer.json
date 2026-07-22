@@ -1,0 +1,15 @@
+{
+    "name": "seoauto/seo-helper",
+    "description": "SEOAuto SEO Helper WordPress plugin (dev tooling)",
+    "type": "wordpress-plugin",
+    "require-dev": {
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "wp-coding-standards/wpcs": "^3.0",
+        "squizlabs/php_codesniffer": "^3.9"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}
