@@ -19,8 +19,10 @@ use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
 use SEOAuto\SEOHelper\Media\Media_Service;
 use SEOAuto\SEOHelper\Post\Post_Service;
 use SEOAuto\SEOHelper\Post\Publishing_Settings;
+use SEOAuto\SEOHelper\Rest\Audit_Rest_Controller;
 use SEOAuto\SEOHelper\Rest\Rest_Controller;
 use SEOAuto\SEOHelper\Seo\Seo_Facade;
+use SEOAuto\SEOHelper\SeoAudit\Audit_Job_Runner;
 
 final class Plugin {
 
@@ -35,6 +37,7 @@ final class Plugin {
 	private Media_Service $media;
 	private Seo_Facade $seo;
 	private Cron_Scheduler $cron;
+	private Audit_Job_Runner $audit_jobs;
 
 	public static function instance(): self {
 		if ( null === self::$instance ) {
@@ -62,6 +65,12 @@ final class Plugin {
 		);
 		$this->seo         = new Seo_Facade();
 		$this->cron        = new Cron_Scheduler( $this->connection, $this->entitlement, $this->audit );
+		$this->audit_jobs  = new Audit_Job_Runner(
+			$this->entitlement,
+			$this->connection,
+			$this->seo,
+			$this->audit
+		);
 	}
 
 	public function boot(): void {
@@ -72,7 +81,8 @@ final class Plugin {
 			$this->entitlement,
 			$this->audit,
 			$this->publishing,
-			$this->seo
+			$this->seo,
+			$this->audit_jobs
 		) )->register();
 		( new Rest_Controller(
 			$this->connection,
@@ -84,9 +94,11 @@ final class Plugin {
 			$this->audit,
 			$this->publishing
 		) )->register();
+		( new Audit_Rest_Controller( $this->auth, $this->audit_jobs ) )->register();
 
 		$this->seo->register_hooks();
 		$this->cron->register();
+		$this->audit_jobs->register();
 
 		\SEOAuto\SEOHelper\Post\Schema::maybe_upgrade();
 	}
@@ -101,5 +113,9 @@ final class Plugin {
 
 	public function audit(): Audit_Logger {
 		return $this->audit;
+	}
+
+	public function audit_jobs(): Audit_Job_Runner {
+		return $this->audit_jobs;
 	}
 }

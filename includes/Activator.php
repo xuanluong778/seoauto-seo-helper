@@ -66,6 +66,11 @@ final class Activator {
 			wp_schedule_event( time() + \HOUR_IN_SECONDS, 'seoauto_six_hours', 'seoauto_helper_sync_entitlement' );
 		}
 
+		if ( ! wp_next_scheduled( 'seoauto_helper_process_audit_jobs' ) ) {
+			self::register_cron_schedules();
+			wp_schedule_event( time() + 60, 'seoauto_every_minute', 'seoauto_helper_process_audit_jobs' );
+		}
+
 		if ( ! function_exists( 'dbDelta' ) ) {
 			require_once \ABSPATH . 'wp-admin/includes/upgrade.php';
 		}
@@ -106,6 +111,12 @@ final class Activator {
 					$schedules['seoauto_six_hours'] = array(
 						'interval' => 6 * \HOUR_IN_SECONDS,
 						'display'  => 'Mỗi 6 giờ (SEOAuto)',
+					);
+				}
+				if ( ! isset( $schedules['seoauto_every_minute'] ) ) {
+					$schedules['seoauto_every_minute'] = array(
+						'interval' => 60,
+						'display'  => 'Mỗi phút (SEOAuto Audit)',
 					);
 				}
 				return $schedules;

@@ -1,10 +1,49 @@
+# Dependencies & build artifacts
 /vendor/
+/node_modules/
 /dist/
 /.zip-verify/
 *.zip
 composer.lock
+package-lock.json
+yarn.lock
+
+# Secrets & local env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials.json
+secrets.json
+auth.json
+
+# Logs & caches
+*.log
+logs/
+*.cache
+.phpunit.result.cache
+.phpcs-cache
+.phplint-cache
+/cache/
+/tmp/
+/temp/
+
+# OS / IDE
 .DS_Store
 Thumbs.db
-*.log
-.phpunit.result.cache
-/node_modules/
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local / runtime data
+/uploads/
+/wp-content/
+*.sqlite
+*.sql.gz
+local-config.php
+wp-config-local.php

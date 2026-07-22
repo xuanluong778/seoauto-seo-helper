@@ -4,7 +4,7 @@ Tags: seo, wordpress, seoauto, schema, open-graph
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.0.4
+Stable tag: 1.1.0-dev
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,6 +25,10 @@ SEOAuto SEO Helper ghép nối site WordPress với nền tảng SEOAuto qua mã
 3. Vào Settings → SEOAuto SEO Helper, nhập mã SA-XXXX-XXXX từ SEOAuto
 
 == Changelog ==
+
+= 1.1.0-dev =
+* Phase 1: SEO Audit Engine (scan-only) — WP-Cron batch jobs, issue store, admin Audit/Jobs, REST /audit/* + /jobs/{id}.
+* Feature gate: seo_audit. LOCKED blocks new scans; keeps historical results.
 
 = 1.0.4 =
 * Fix fatal error trên PHP 8.1: thay kiểu `true|WP_Error` (chỉ có từ PHP 8.2) bằng `bool|WP_Error`.

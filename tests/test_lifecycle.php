@@ -21,6 +21,9 @@ $GLOBALS['seoauto_test_tables']  = array(
 	'wp_seoauto_helper_idempotency' => true,
 	'wp_seoauto_helper_article_map'  => true,
 	'wp_seoauto_helper_media_map'    => true,
+	'wp_seoauto_helper_audit_runs'   => true,
+	'wp_seoauto_helper_audit_issues' => true,
+	'wp_seoauto_helper_jobs'         => true,
 );
 
 function get_option( string $name, $default = false ) {
@@ -104,6 +107,7 @@ check(
 		Activator::activate();
 		return get_option( 'seoauto_helper_api_base' ) === 'https://seoauto.vn'
 			&& wp_next_scheduled( Cron_Scheduler::HOOK_SYNC ) !== false
+			&& wp_next_scheduled( 'seoauto_helper_process_audit_jobs' ) !== false
 			&& (int) get_option( 'seoauto_helper_db_version', 0 ) === Schema::DB_VERSION;
 	}
 );
@@ -123,6 +127,7 @@ check(
 		update_option( 'seoauto_helper_site_id', 'keep-me' );
 		Deactivator::deactivate();
 		return wp_next_scheduled( Cron_Scheduler::HOOK_SYNC ) === false
+			&& wp_next_scheduled( 'seoauto_helper_process_audit_jobs' ) === false
 			&& get_option( 'seoauto_helper_site_id' ) === 'keep-me';
 	}
 );
@@ -134,10 +139,14 @@ foreach ( $options as $key ) {
 	delete_option( $prefix . $key );
 }
 wp_clear_scheduled_hook( 'seoauto_helper_sync_entitlement' );
+wp_clear_scheduled_hook( 'seoauto_helper_process_audit_jobs' );
 global $wpdb;
 $wpdb->query( 'DROP TABLE IF EXISTS wp_seoauto_helper_idempotency' );
 $wpdb->query( 'DROP TABLE IF EXISTS wp_seoauto_helper_article_map' );
 $wpdb->query( 'DROP TABLE IF EXISTS wp_seoauto_helper_media_map' );
+$wpdb->query( 'DROP TABLE IF EXISTS wp_seoauto_helper_audit_runs' );
+$wpdb->query( 'DROP TABLE IF EXISTS wp_seoauto_helper_audit_issues' );
+$wpdb->query( 'DROP TABLE IF EXISTS wp_seoauto_helper_jobs' );
 
 check(
 	'uninstall removes options and tables',

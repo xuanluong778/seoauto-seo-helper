@@ -14,11 +14,15 @@ use SEOAuto\SEOHelper\Connection\Connection_Manager;
 use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
 use SEOAuto\SEOHelper\Post\Publishing_Settings;
 use SEOAuto\SEOHelper\Seo\Seo_Facade;
+use SEOAuto\SEOHelper\SeoAudit\Audit_Job_Runner;
+use SEOAuto\SEOHelper\SeoAudit\Object_Context;
 
 final class Admin_Menu {
 
 	public const SLUG_OVERVIEW = 'seoauto-helper';
 	public const SLUG_CONNECT  = 'seoauto-helper-connect';
+	public const SLUG_AUDIT    = 'seoauto-helper-audit';
+	public const SLUG_JOBS     = 'seoauto-helper-jobs';
 	public const SLUG_LOGS     = 'seoauto-helper-logs';
 
 	public function __construct(
@@ -26,7 +30,8 @@ final class Admin_Menu {
 		private Entitlement_Manager $entitlement,
 		private Audit_Logger $audit,
 		private Publishing_Settings $publishing,
-		private Seo_Facade $seo
+		private Seo_Facade $seo,
+		private Audit_Job_Runner $audit_jobs
 	) {}
 
 	public function register(): void {
@@ -62,6 +67,24 @@ final class Admin_Menu {
 			'manage_options',
 			self::SLUG_CONNECT,
 			array( $this, 'render_connect' )
+		);
+
+		add_submenu_page(
+			self::SLUG_OVERVIEW,
+			__( 'SEO Audit', 'seoauto-seo-helper' ),
+			__( 'SEO Audit', 'seoauto-seo-helper' ),
+			'manage_options',
+			self::SLUG_AUDIT,
+			array( $this, 'render_audit' )
+		);
+
+		add_submenu_page(
+			self::SLUG_OVERVIEW,
+			__( 'Jobs', 'seoauto-seo-helper' ),
+			__( 'Jobs', 'seoauto-seo-helper' ),
+			'manage_options',
+			self::SLUG_JOBS,
+			array( $this, 'render_jobs' )
 		);
 
 		add_submenu_page(
@@ -115,6 +138,15 @@ final class Admin_Menu {
 		if ( $action === 'save_log_retention' ) {
 			$this->handle_save_log_retention();
 		}
+		if ( $action === 'audit_start_scan' ) {
+			$this->handle_audit_start_scan();
+		}
+		if ( $action === 'audit_cancel_job' ) {
+			$this->handle_audit_cancel_job();
+		}
+		if ( $action === 'audit_resume_job' ) {
+			$this->handle_audit_resume_job();
+		}
 	}
 
 	public function render_overview(): void {
@@ -151,6 +183,71 @@ final class Admin_Menu {
 			return;
 		}
 		( new Logs_Page( $this->audit ) )->render();
+	}
+
+	public function render_audit(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		( new Audit_Page( $this->audit_jobs, $this->entitlement ) )->render();
+	}
+
+	public function render_jobs(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		( new Jobs_Page( $this->audit_jobs, $this->entitlement ) )->render();
+	}
+
+	private function handle_audit_start_scan(): void {
+		$result = $this->audit_jobs->enqueue_scan(
+			array(
+				'post_types' => Object_Context::audit_post_types(),
+				'mode'       => 'scan_only',
+				'batch_size' => 20,
+			)
+		);
+		if ( is_wp_error( $result ) ) {
+			add_settings_error( 'seoauto_helper', 'audit_denied', $result->get_error_message(), 'error' );
+			return;
+		}
+		add_settings_error(
+			'seoauto_helper',
+			'audit_queued',
+			sprintf(
+				/* translators: 1: job id 2: run id */
+				__( 'Đã xếp hàng scan — Job #%1$d / Run #%2$d.', 'seoauto-seo-helper' ),
+				(int) $result['job_id'],
+				(int) $result['run_id']
+			),
+			'updated'
+		);
+	}
+
+	private function handle_audit_cancel_job(): void {
+		$job_id = isset( $_POST['job_id'] ) ? absint( $_POST['job_id'] ) : 0;
+		$ok     = $job_id > 0 && $this->audit_jobs->cancel_job( $job_id );
+		add_settings_error(
+			'seoauto_helper',
+			$ok ? 'job_cancelled' : 'job_cancel_fail',
+			$ok ? __( 'Đã hủy job.', 'seoauto-seo-helper' ) : __( 'Không hủy được job.', 'seoauto-seo-helper' ),
+			$ok ? 'updated' : 'error'
+		);
+	}
+
+	private function handle_audit_resume_job(): void {
+		$job_id = isset( $_POST['job_id'] ) ? absint( $_POST['job_id'] ) : 0;
+		$result = $job_id > 0 ? $this->audit_jobs->resume_job( $job_id ) : false;
+		if ( is_wp_error( $result ) ) {
+			add_settings_error( 'seoauto_helper', 'job_resume_denied', $result->get_error_message(), 'error' );
+			return;
+		}
+		add_settings_error(
+			'seoauto_helper',
+			$result ? 'job_resumed' : 'job_resume_fail',
+			$result ? __( 'Đã tiếp tục job.', 'seoauto-seo-helper' ) : __( 'Không tiếp tục được job.', 'seoauto-seo-helper' ),
+			$result ? 'updated' : 'error'
+		);
 	}
 
 	private function handle_pair(): void {

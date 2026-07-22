@@ -32,6 +32,28 @@ METHOD\nPATH\nTIMESTAMP\nNONCE\nREQUEST_ID\nSHA256_HEX(body)
 | POST | `/entitlement/refresh` | Không | Cập nhật entitlement + lock state |
 | POST | `/health-check` | Không | Self-check HMAC + secret |
 | GET | `/logs` | Không | Audit log (redacted) |
+| POST | `/audit/scan` | Có (`seo_audit`) | Enqueue SEO audit scan (WP-Cron batch) |
+| GET | `/audit/runs/{id}` | Có (`seo_audit`) | Trạng thái audit run |
+| GET | `/audit/issues` | Có (`seo_audit`) | Danh sách findings |
+| GET | `/jobs/{id}` | Không (HMAC) | Poll background job |
+
+## POST /audit/scan
+
+```json
+{
+  "request_id": "uuid-stable",
+  "post_types": ["post", "page", "product"],
+  "batch_size": 20,
+  "mode": "scan_only"
+}
+```
+
+Response **202**: `job_id`, `run_id`, `checkers[]`. Replay cùng `request_id` → `idempotent_replay: true`.
+
+LOCKED → `403 seoauto_plugin_locked` (không xóa kết quả cũ).
+
+| Method | Path | Entitlement | Mô tả |
+|--------|------|-------------|--------|
 | POST | `/posts` | Có (`seo_helper`) | Tạo bài — `request_id`, `source_article_id` bắt buộc |
 | PATCH | `/posts/{id}` | Có | Cập nhật bài đã map |
 | POST | `/posts/{id}/schedule` | Có | Lên lịch `scheduled_at` |

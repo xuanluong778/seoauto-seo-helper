@@ -23,6 +23,8 @@ final class Deactivator {
 			wp_unschedule_event( $timestamp, Cron_Scheduler::HOOK_SYNC );
 		}
 		wp_clear_scheduled_hook( Cron_Scheduler::HOOK_SYNC );
+		// String hook — avoid hard dependency when Deactivator loads alone in tests.
+		wp_clear_scheduled_hook( 'seoauto_helper_process_audit_jobs' );
 		flush_rewrite_rules( false );
 	}
 }

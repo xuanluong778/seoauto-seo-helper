@@ -62,7 +62,10 @@ $tests = @(
     'test_content_sanitizer.php',
     'test_seo_adapters.php',
     'test_lifecycle.php',
-    'test_secret_redaction.php'
+    'test_secret_redaction.php',
+    'test_seo_audit_engine.php',
+    'test_load_all_classes.php',
+    'test_boot_smoke.php'
 )
 $testFail = 0
 foreach ($t in $tests) {

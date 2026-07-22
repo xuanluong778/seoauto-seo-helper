@@ -48,6 +48,7 @@ delete_option( $prefix . 'audit_log' );
 delete_option( $prefix . 'used_nonces' );
 delete_option( $prefix . 'db_version' );
 wp_clear_scheduled_hook( 'seoauto_helper_sync_entitlement' );
+wp_clear_scheduled_hook( 'seoauto_helper_process_audit_jobs' );
 
 global $wpdb;
 if ( isset( $wpdb ) && is_object( $wpdb ) ) {
@@ -57,4 +58,10 @@ if ( isset( $wpdb ) && is_object( $wpdb ) ) {
 	$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'seoauto_helper_article_map' );
 	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'seoauto_helper_media_map' );
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'seoauto_helper_audit_runs' );
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'seoauto_helper_audit_issues' );
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'seoauto_helper_jobs' );
 }

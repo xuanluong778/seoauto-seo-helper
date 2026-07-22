@@ -190,10 +190,28 @@ final class Request_Authenticator {
 		if ( null === $this->entitlement ) {
 			return false;
 		}
-		if ( $this->entitlement->has_feature( $feature ) || $this->entitlement->has_feature( 'seo_helper' ) ) {
+		// Exact feature from SaaS entitlement snapshot (production source of truth).
+		if ( $this->entitlement->has_feature( $feature ) ) {
 			return true;
 		}
-		// Active entitlement covers core helper publishing features.
+
+		// seo_audit must be explicitly granted — never implied by seo_helper in production.
+		if ( $feature === 'seo_audit' ) {
+			if ( $this->dev_entitlement_fallback()
+				&& $this->entitlement->is_allowed()
+				&& $this->entitlement->has_feature( 'seo_helper' )
+			) {
+				return true;
+			}
+			$caps    = $this->entitlement->capabilities();
+			$cap_map = is_array( $caps['capabilities'] ?? null ) ? $caps['capabilities'] : array();
+			return ! empty( $cap_map['seo_audit'] );
+		}
+
+		if ( $this->entitlement->has_feature( 'seo_helper' ) ) {
+			return true;
+		}
+		// Active entitlement covers classic publish/SEO-sync features only.
 		if ( in_array( $feature, array( 'seo_helper', 'yoast_sync', 'rankmath_sync' ), true )
 			&& $this->entitlement->is_allowed()
 		) {
@@ -202,6 +220,19 @@ final class Request_Authenticator {
 		$caps    = $this->entitlement->capabilities();
 		$cap_map = is_array( $caps['capabilities'] ?? null ) ? $caps['capabilities'] : array();
 		return ! empty( $cap_map[ $feature ] );
+	}
+
+	/**
+	 * Dev-only fallback (WP_DEBUG / SEOAUTO_HELPER_DEV). Must stay false on production.
+	 */
+	private function dev_entitlement_fallback(): bool {
+		if ( defined( 'SEOAUTO_HELPER_DEV' ) && SEOAUTO_HELPER_DEV ) {
+			return true;
+		}
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			return true;
+		}
+		return (bool) apply_filters( 'seoauto_helper_dev_entitlement_fallback', false );
 	}
 
 	private function error( string $code, string $message, int $status, array $extra = array() ): WP_Error {

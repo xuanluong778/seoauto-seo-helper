@@ -81,9 +81,19 @@ $classes = array(
 	'SEOAuto\\SEOHelper\\Post\\Idempotency_Store',
 	'SEOAuto\\SEOHelper\\Post\\Schema',
 	'SEOAuto\\SEOHelper\\Rest\\Rest_Controller',
+	'SEOAuto\\SEOHelper\\Rest\\Audit_Rest_Controller',
 	'SEOAuto\\SEOHelper\\Seo\\Seo_Facade',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Audit_Engine',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Audit_Job_Runner',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Audit_Issue',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Issue_Store',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Job_Store',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Audit_Run_Store',
+	'SEOAuto\\SEOHelper\\SeoAudit\\Checkers\\Title_Checker',
 	'SEOAuto\\SEOHelper\\Cron\\Cron_Scheduler',
 	'SEOAuto\\SEOHelper\\Admin\\Admin_Menu',
+	'SEOAuto\\SEOHelper\\Admin\\Audit_Page',
+	'SEOAuto\\SEOHelper\\Admin\\Jobs_Page',
 );
 
 $failed = 0;

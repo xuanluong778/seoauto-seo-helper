@@ -43,6 +43,7 @@ final class Entitlement_Manager {
 		'media_sideload',
 		'media_dedupe',
 		'seo_meta',
+		'audit_scan_enqueued',
 	);
 
 	public function __construct(
@@ -491,6 +492,8 @@ final class Entitlement_Manager {
 				'schema'        => $this->has_feature( 'schema' ) || $eval['allowed'],
 				'yoast_sync'    => $this->has_feature( 'yoast_sync' ) || $eval['allowed'],
 				'rankmath_sync' => $this->has_feature( 'rankmath_sync' ) || $eval['allowed'],
+				// Production: only when SaaS enabled_features includes seo_audit.
+				'seo_audit'     => $this->has_feature( 'seo_audit' ),
 			),
 		);
 	}

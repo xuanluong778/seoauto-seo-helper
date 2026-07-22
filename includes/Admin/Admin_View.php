@@ -84,6 +84,14 @@ final class Admin_View {
 				'slug'  => Admin_Menu::SLUG_CONNECT,
 				'label' => __( 'Kết nối', 'seoauto-seo-helper' ),
 			),
+			'audit'    => array(
+				'slug'  => Admin_Menu::SLUG_AUDIT,
+				'label' => __( 'SEO Audit', 'seoauto-seo-helper' ),
+			),
+			'jobs'     => array(
+				'slug'  => Admin_Menu::SLUG_JOBS,
+				'label' => __( 'Jobs', 'seoauto-seo-helper' ),
+			),
 			'logs'     => array(
 				'slug'  => Admin_Menu::SLUG_LOGS,
 				'label' => __( 'Nhật ký', 'seoauto-seo-helper' ),
