@@ -18,6 +18,8 @@ jobs:
   release:
     name: Test · Package · Upload draft
     runs-on: ubuntu-latest
+    # Production draft/upload credentials live in this Environment (not repo staging secrets).
+    environment: plugin-release-beta
     env:
       PHP_VERSION: "8.1"
 
@@ -59,6 +61,25 @@ jobs:
           echo "version=${VER}" >> "$GITHUB_OUTPUT"
           echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Guard production Environment targets
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          SEOAUTO_API_BASE: ${{ secrets.SEOAUTO_API_BASE }}
+        run: |
+          set -euo pipefail
+          if [[ "${R2_BUCKET}" != "seoauto-plugin-production" ]]; then
+            echo "REFUSE: R2_BUCKET is not seoauto-plugin-production" >&2
+            exit 1
+          fi
+          base="${SEOAUTO_API_BASE%/}"
+          if [[ "${base}" != "https://seoauto.vn" ]]; then
+            echo "REFUSE: SEOAUTO_API_BASE is not https://seoauto.vn" >&2
+            exit 1
+          fi
+          echo "PROD_TARGET_GUARD=PASS"
+          echo "bucket=seoauto-plugin-production"
+          echo "api_base=https://seoauto.vn"
 
       - name: Verify version consistency
         run: |
