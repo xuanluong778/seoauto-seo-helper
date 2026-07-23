@@ -2,6 +2,7 @@
 /vendor/
 /node_modules/
 /dist/
+/artifacts/
 /.zip-verify/
 *.zip
 composer.lock
