@@ -1,6 +1,8 @@
 name: Publish SEO Helper release
 
-# Manual publish after staging E2E. Stable must only be published when E2E passed.
+# Manual publish after staging E2E.
+# Must live on the repository default branch for workflow_dispatch.
+# Stable requires staging_e2e_passed=true AND GitHub Environment approval.
 on:
   workflow_dispatch:
     inputs:
@@ -15,16 +17,24 @@ on:
         options:
           - stable
           - beta
-        default: stable
+        default: beta
       staging_e2e_passed:
         description: "Confirm staging E2E passed (required for stable)"
         required: true
         type: boolean
         default: false
+  pull_request:
+    paths:
+      - ".github/workflows/publish-plugin-release.yml"
+
+permissions:
+  contents: read
 
 jobs:
-  publish:
+  guard:
+    name: Guard inputs
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Guard stable publish
         run: |
@@ -36,16 +46,27 @@ jobs:
             echo "Refuse to publish version with -dev/-alpha suffix" >&2
             exit 1
           fi
+          if [[ "${{ inputs.channel }}" == "stable" && "${{ inputs.version }}" =~ -(beta|rc) ]]; then
+            echo "Refuse to publish beta/rc version on stable channel" >&2
+            exit 1
+          fi
 
+  publish-beta:
+    name: Publish beta
+    needs: guard
+    if: github.event_name == 'workflow_dispatch' && inputs.channel == 'beta'
+    runs-on: ubuntu-latest
+    environment: plugin-release-beta
+    steps:
       - name: Publish via SEOAuto CI API
         env:
           SEOAUTO_API_BASE: ${{ secrets.SEOAUTO_API_BASE }}
           WP_PLUGIN_CI_RELEASE_TOKEN: ${{ secrets.WP_PLUGIN_CI_RELEASE_TOKEN }}
           VERSION: ${{ inputs.version }}
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: beta
         run: |
-          python3 - <<'PY'
-          import json, os, urllib.request, urllib.error
+          python3 <<'PY'
+          import os, urllib.request, urllib.error
           base = os.environ["SEOAUTO_API_BASE"].rstrip("/")
           token = os.environ["WP_PLUGIN_CI_RELEASE_TOKEN"]
           version = os.environ["VERSION"].lstrip("vV")
@@ -67,3 +88,54 @@ jobs:
               print(e.read().decode(), flush=True)
               raise
           PY
+
+  publish-stable:
+    name: Publish stable
+    needs: guard
+    if: github.event_name == 'workflow_dispatch' && inputs.channel == 'stable'
+    runs-on: ubuntu-latest
+    environment: plugin-release-stable
+    steps:
+      - name: Re-check E2E flag
+        run: |
+          if [[ "${{ inputs.staging_e2e_passed }}" != "true" ]]; then
+            echo "stable requires staging_e2e_passed=true" >&2
+            exit 1
+          fi
+      - name: Publish via SEOAuto CI API
+        env:
+          SEOAUTO_API_BASE: ${{ secrets.SEOAUTO_API_BASE }}
+          WP_PLUGIN_CI_RELEASE_TOKEN: ${{ secrets.WP_PLUGIN_CI_RELEASE_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: stable
+        run: |
+          python3 <<'PY'
+          import os, urllib.request, urllib.error
+          base = os.environ["SEOAUTO_API_BASE"].rstrip("/")
+          token = os.environ["WP_PLUGIN_CI_RELEASE_TOKEN"]
+          version = os.environ["VERSION"].lstrip("vV")
+          channel = os.environ["CHANNEL"]
+          url = f"{base}/api/wordpress-plugin/releases/{version}/publish?channel={channel}"
+          req = urllib.request.Request(
+              url,
+              data=b"{}",
+              headers={
+                  "Content-Type": "application/json",
+                  "X-SEOAuto-CI-Token": token,
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=60) as resp:
+                  print(resp.read().decode())
+          except urllib.error.HTTPError as e:
+              print(e.read().decode(), flush=True)
+              raise
+          PY
+
+  register:
+    name: Register workflow (PR only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "publish-plugin-release.yml registered via PR; no publish performed."
