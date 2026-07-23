@@ -1,0 +1,140 @@
+name: Release SEO Helper plugin
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing git tag to build (e.g. v1.1.0-beta.4). Does not overwrite tags."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Test · Package · Upload draft
+    runs-on: ubuntu-latest
+    env:
+      PHP_VERSION: "8.1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: zip, mbstring, json
+          coverage: none
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install AWS CLI
+        run: pip install awscli
+
+      - name: Detect channel from tag
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          TAG="${TAG#refs/tags/}"
+          VER="${TAG#v}"
+          CHANNEL="stable"
+          if [[ "${VER}" == *"-beta"* || "${VER}" == *"-rc"* ]]; then
+            CHANNEL="beta"
+          fi
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version consistency
+        run: |
+          chmod +x scripts/ci/verify-version.sh scripts/package.sh scripts/run-qa.sh scripts/ci/upload-and-register-release.sh
+          scripts/ci/verify-version.sh "${{ steps.meta.outputs.version }}" "${{ steps.meta.outputs.channel }}"
+
+      - name: Run full QA
+        run: bash scripts/run-qa.sh
+
+      - name: Build ZIP (single root seoauto-seo-helper/)
+        run: |
+          ROOT="$PWD"
+          SLUG="seoauto-seo-helper"
+          OUT_DIR="$ROOT/dist"
+          STAGE="$OUT_DIR/$SLUG"
+          ZIP_PATH="$ROOT/seoauto-seo-helper.zip"
+          rm -rf "$STAGE" "$ZIP_PATH"
+          mkdir -p "$STAGE"
+          for item in seoauto-seo-helper.php uninstall.php readme.txt README.md includes assets docs; do
+            [[ -e "$ROOT/$item" ]] && cp -a "$ROOT/$item" "$STAGE/"
+          done
+          find "$STAGE" \( -name '.env' -o -name '.env.local' -o -name '.git' -o -name 'phpunit.xml' -o -name 'composer.json' -o -name 'composer.lock' \) -delete || true
+          find "$STAGE" -type d \( -name '.git' -o -name 'tests' -o -name 'vendor' -o -name 'node_modules' -o -name 'logs' -o -name 'cache' \) -exec rm -rf {} + 2>/dev/null || true
+          (cd "$OUT_DIR" && zip -qr "$ZIP_PATH" "$SLUG")
+          python3 - <<'PY'
+          import zipfile
+          z = zipfile.ZipFile("seoauto-seo-helper.zip")
+          names = z.namelist()
+          assert "seoauto-seo-helper/seoauto-seo-helper.php" in names, names[:20]
+          roots = {n.split("/")[0] for n in names if n}
+          assert roots == {"seoauto-seo-helper"}, roots
+          assert z.testzip() is None
+          print("ZIP structure OK")
+          PY
+
+      - name: Build release manifest + signature
+        env:
+          WP_PLUGIN_RELEASE_SIGNING_KEY: ${{ secrets.WP_PLUGIN_RELEASE_SIGNING_KEY }}
+        run: |
+          python3 scripts/ci/build-release-manifest.py \
+            --zip seoauto-seo-helper.zip \
+            --version "${{ steps.meta.outputs.version }}" \
+            --channel "${{ steps.meta.outputs.channel }}" \
+            --changelog-url "https://seoauto.vn/docs/seo-helper-changelog#${{ steps.meta.outputs.version }}" \
+            --out release-manifest.json
+
+      - name: Upload to R2 and create draft release
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+          R2_PREFIX: ${{ secrets.R2_PREFIX }}
+          R2_FORCE_PATH_STYLE: ${{ secrets.R2_FORCE_PATH_STYLE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          SEOAUTO_API_BASE: ${{ secrets.SEOAUTO_API_BASE }}
+          WP_PLUGIN_CI_RELEASE_TOKEN: ${{ secrets.WP_PLUGIN_CI_RELEASE_TOKEN }}
+          MANIFEST_PATH: release-manifest.json
+          ROLLOUT_PERCENT: ${{ vars.ROLLOUT_PERCENT }}
+        run: |
+          export R2_PREFIX="${R2_PREFIX:-plugin-releases}"
+          export R2_FORCE_PATH_STYLE="${R2_FORCE_PATH_STYLE:-}"
+          export ROLLOUT_PERCENT="${ROLLOUT_PERCENT:-100}"
+          bash scripts/ci/upload-and-register-release.sh release-manifest.json seoauto-seo-helper.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seoauto-seo-helper-${{ steps.meta.outputs.version }}
+          path: |
+            seoauto-seo-helper.zip
+            seoauto-seo-helper.zip.sha256
+            release-manifest.json
+          if-no-files-found: error
+
+      - name: Reminder — do not publish stable yet
+        run: |
+          echo "Draft release created for ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.channel }})."
+          echo "Run staging E2E, then workflow_dispatch publish-plugin-release (stable only after E2E pass)."
