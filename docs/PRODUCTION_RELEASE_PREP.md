@@ -25,10 +25,11 @@ Tạo key ngoài Git; đưa vào prod `env.local` (chmod 600) + GitHub Environme
 
 | Mục | Yêu cầu |
 |-----|---------|
-| Code | `content_ops` **không** nằm `SEO_HELPER_CAPABILITIES`; bật qua `UsageLimit` (`limit_value != 0`) hoặc `PLAN_FEATURES[slug].content_ops=True` |
-| Default | **false** cho mọi plan |
-| Canary | Chỉ set UsageLimit / plan flag cho 1–2 org nội bộ |
+| Code | `content_ops` **không** nằm `SEO_HELPER_CAPABILITIES`; bật qua `UsageLimit` (`limit_value != 0`), `PLAN_FEATURES[slug].content_ops=True`, hoặc `PLUGIN_CONTENT_OPS_CANARY_USER_IDS` |
+| Default | **false** cho mọi plan (kể cả admin) |
+| Canary | Chỉ set allowlist user id / UsageLimit cho 1–2 org nội bộ trong prod `env.local` |
 | WP_DEBUG | Không dùng làm feature gate |
+| SaaS commits | `e245fea` (opt-in) + `a88e63b` (canary user allowlist) — branch `feature/seo-helper-content-ops-gate` |
 
 ---
 
