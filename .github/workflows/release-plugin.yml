@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing git tag to build (e.g. v1.1.0-beta.4). Does not overwrite tags."
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -37,7 +45,12 @@ jobs:
       - name: Detect channel from tag
         id: meta
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          TAG="${TAG#refs/tags/}"
           VER="${TAG#v}"
           CHANNEL="stable"
           if [[ "${VER}" == *"-beta"* || "${VER}" == *"-rc"* ]]; then
@@ -57,7 +70,6 @@ jobs:
 
       - name: Build ZIP (single root seoauto-seo-helper/)
         run: |
-          # package.sh also runs QA; skip nested QA failure by invoking zip steps after QA
           ROOT="$PWD"
           SLUG="seoauto-seo-helper"
           OUT_DIR="$ROOT/dist"
@@ -72,7 +84,7 @@ jobs:
           find "$STAGE" -type d \( -name '.git' -o -name 'tests' -o -name 'vendor' -o -name 'node_modules' -o -name 'logs' -o -name 'cache' \) -exec rm -rf {} + 2>/dev/null || true
           (cd "$OUT_DIR" && zip -qr "$ZIP_PATH" "$SLUG")
           python3 - <<'PY'
-          import zipfile, sys
+          import zipfile
           z = zipfile.ZipFile("seoauto-seo-helper.zip")
           names = z.namelist()
           assert "seoauto-seo-helper/seoauto-seo-helper.php" in names, names[:20]
