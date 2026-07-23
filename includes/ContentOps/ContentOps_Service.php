@@ -903,6 +903,13 @@ final class ContentOps_Service {
 		if ( $this->entitlement->is_locked() ) {
 			return new WP_Error( 'seoauto_locked', __( 'Plugin đang LOCKED.', 'seoauto-seo-helper' ), array( 'status' => 403 ) );
 		}
+		if ( ! $this->entitlement->has_feature( self::FEATURE ) ) {
+			return new WP_Error(
+				'seoauto_feature_denied',
+				__( 'Thiếu feature: content_ops (cấp từ SEOAuto entitlement).', 'seoauto-seo-helper' ),
+				array( 'status' => 403 )
+			);
+		}
 		return true;
 	}
 

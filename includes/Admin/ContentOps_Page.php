@@ -20,8 +20,6 @@ final class ContentOps_Page {
 	) {}
 
 	public function render(): void {
-		$caps    = $this->entitlement->capabilities();
-		$can     = ! empty( $caps['capabilities']['content_ops'] ) || $this->entitlement->has_feature( ContentOps_Service::FEATURE );
 		$batches = $this->ops->recent_batches( 25 );
 
 		Admin_View::wrap_start( __( 'ContentOps', 'seoauto-seo-helper' ) );
@@ -29,8 +27,8 @@ final class ContentOps_Page {
 
 		echo '<p>' . esc_html__( 'Luồng Phase 2: Preview → Backup → Apply → Recheck → Rollback. Preview không ghi dữ liệu; backup thất bại chặn Apply.', 'seoauto-seo-helper' ) . '</p>';
 
-		if ( ! $can && ! ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ) {
-			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Feature content_ops chưa được cấp trong entitlement.', 'seoauto-seo-helper' ) . '</p></div>';
+		if ( ! $this->entitlement->has_feature( ContentOps_Service::FEATURE ) ) {
+			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Feature content_ops chưa được cấp trong entitlement SaaS.', 'seoauto-seo-helper' ) . '</p></div>';
 		}
 
 		echo '<h2>' . esc_html__( 'Batch gần đây', 'seoauto-seo-helper' ) . '</h2>';

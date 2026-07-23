@@ -1,15 +1,10 @@
-<?php
-/**
- * Phase 2 ContentOps API docs (staging).
- *
- * @package SEOAuto\SEOHelper
- */
-
 # ContentOps API (Phase 2)
 
 Namespace: `seoauto/v1`  
 Auth: HMAC headers (Site-ID, Connection-ID, Timestamp, Nonce, Request-ID, Signature)  
-Feature: `content_ops` (explicit; not implied by `seo_helper` in production)
+Feature: `content_ops` — **SaaS explicit only** (in signed `enabled_features`). Not implied by `seo_helper`. No `WP_DEBUG` fallback.
+
+Plugin refreshes entitlement via `GET /api/wordpress-plugin/entitlement` with plugin HMAC; SaaS recomputes features from plan catalog (includes `content_ops` in `SEO_HELPER_CAPABILITIES`).
 
 ## Flow
 

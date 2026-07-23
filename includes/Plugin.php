@@ -146,6 +146,10 @@ final class Plugin {
 		return $this->updater;
 	}
 
+	public function seo(): Seo_Facade {
+		return $this->seo;
+	}
+
 	public function content_ops(): ContentOps_Service {
 		return $this->content_ops;
 	}

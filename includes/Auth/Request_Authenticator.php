@@ -195,8 +195,15 @@ final class Request_Authenticator {
 			return true;
 		}
 
-		// Explicit features — never implied by seo_helper in production.
-		if ( in_array( $feature, array( 'seo_audit', 'content_ops' ), true ) ) {
+		// content_ops: SaaS explicit only — never implied by seo_helper / WP_DEBUG.
+		if ( $feature === 'content_ops' ) {
+			$caps    = $this->entitlement->capabilities();
+			$cap_map = is_array( $caps['capabilities'] ?? null ) ? $caps['capabilities'] : array();
+			return ! empty( $cap_map['content_ops'] );
+		}
+
+		// seo_audit must be explicitly granted — never implied by seo_helper in production.
+		if ( $feature === 'seo_audit' ) {
 			if ( $this->dev_entitlement_fallback()
 				&& $this->entitlement->is_allowed()
 				&& $this->entitlement->has_feature( 'seo_helper' )
@@ -205,7 +212,7 @@ final class Request_Authenticator {
 			}
 			$caps    = $this->entitlement->capabilities();
 			$cap_map = is_array( $caps['capabilities'] ?? null ) ? $caps['capabilities'] : array();
-			return ! empty( $cap_map[ $feature ] );
+			return ! empty( $cap_map['seo_audit'] );
 		}
 
 		if ( $this->entitlement->has_feature( 'seo_helper' ) ) {
