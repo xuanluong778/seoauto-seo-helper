@@ -2,7 +2,7 @@
 # Verify tag / header / constant / readme versions agree. Reject -dev on stable.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TAG_VERSION="${1:-}"
 CHANNEL="${2:-stable}"
 

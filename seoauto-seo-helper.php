@@ -1,9 +1,9 @@
-<?php
+﻿<?php
 /**
  * Plugin Name:       SEOAuto SEO Helper
  * Plugin URI:        https://seoauto.vn
- * Description:       Kết nối WordPress với SEOAuto — tối ưu Open Graph, Schema, đồng bộ Rank Math/Yoast khi đăng bài từ SEOAuto.
- * Version:           1.1.0-beta.1
+ * Description:       Káº¿t ná»‘i WordPress vá»›i SEOAuto â€” tá»‘i Æ°u Open Graph, Schema, Ä‘á»“ng bá»™ Rank Math/Yoast khi Ä‘Äƒng bÃ i tá»« SEOAuto.
+ * Version:           1.1.0-beta.2
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            SEOAuto
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SEOAUTO_HELPER_VERSION', '1.1.0-beta.1' );
+define( 'SEOAUTO_HELPER_VERSION', '1.1.0-beta.2' );
 define( 'SEOAUTO_HELPER_FILE', __FILE__ );
 define( 'SEOAUTO_HELPER_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SEOAUTO_HELPER_URL', plugin_dir_url( __FILE__ ) );
@@ -36,7 +36,7 @@ if ( ! is_readable( SEOAUTO_HELPER_PATH . 'includes/Plugin.php' ) ) {
 		static function (): void {
 			echo '<div class="notice notice-error"><p>';
 			echo esc_html__(
-				'SEOAuto SEO Helper: thiếu thư mục includes/. Hãy xóa plugin và upload lại file seoauto-seo-helper.zip chuẩn (không nén thủ công).',
+				'SEOAuto SEO Helper: thiáº¿u thÆ° má»¥c includes/. HÃ£y xÃ³a plugin vÃ  upload láº¡i file seoauto-seo-helper.zip chuáº©n (khÃ´ng nÃ©n thá»§ cÃ´ng).',
 				'seoauto-seo-helper'
 			);
 			echo '</p></div>';
@@ -74,7 +74,7 @@ add_action(
 				'admin_notices',
 				static function (): void {
 					echo '<div class="notice notice-error"><p>';
-					echo esc_html__( 'SEOAuto SEO Helper yêu cầu PHP 8.1 trở lên.', 'seoauto-seo-helper' );
+					echo esc_html__( 'SEOAuto SEO Helper yÃªu cáº§u PHP 8.1 trá»Ÿ lÃªn.', 'seoauto-seo-helper' );
 					echo '</p></div>';
 				}
 			);
@@ -86,7 +86,7 @@ add_action(
 				'admin_notices',
 				static function (): void {
 					echo '<div class="notice notice-error"><p>';
-					echo esc_html__( 'SEOAuto SEO Helper yêu cầu PHP extension OpenSSL.', 'seoauto-seo-helper' );
+					echo esc_html__( 'SEOAuto SEO Helper yÃªu cáº§u PHP extension OpenSSL.', 'seoauto-seo-helper' );
 					echo '</p></div>';
 				}
 			);
@@ -109,7 +109,7 @@ add_action(
 				static function (): void {
 					echo '<div class="notice notice-error"><p>';
 					echo esc_html__(
-						'SEOAuto SEO Helper không khởi động được. Vui lòng xóa plugin, upload lại ZIP chuẩn, hoặc xem debug.log.',
+						'SEOAuto SEO Helper khÃ´ng khá»Ÿi Ä‘á»™ng Ä‘Æ°á»£c. Vui lÃ²ng xÃ³a plugin, upload láº¡i ZIP chuáº©n, hoáº·c xem debug.log.',
 						'seoauto-seo-helper'
 					);
 					echo '</p></div>';
