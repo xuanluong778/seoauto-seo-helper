@@ -1,6 +1,6 @@
 <?php
 /**
- * DB schema for publish maps + SEO audit runs/issues/jobs.
+ * DB schema for publish maps + SEO audit + ContentOps backups.
  *
  * @package SEOAuto\SEOHelper
  */
@@ -11,7 +11,7 @@ namespace SEOAuto\SEOHelper\Post;
 
 final class Schema {
 
-	public const DB_VERSION        = 3;
+	public const DB_VERSION        = 4;
 	public const OPTION_DB_VERSION = 'db_version';
 
 	public static function idempotency_table(): string {
@@ -42,6 +42,26 @@ final class Schema {
 	public static function jobs_table(): string {
 		global $wpdb;
 		return $wpdb->prefix . 'seoauto_helper_jobs';
+	}
+
+	public static function content_batches_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'seoauto_helper_content_batches';
+	}
+
+	public static function content_backups_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'seoauto_helper_content_backups';
+	}
+
+	public static function content_changes_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'seoauto_helper_content_changes';
+	}
+
+	public static function content_locks_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'seoauto_helper_content_locks';
 	}
 
 	public static function maybe_upgrade(): void {
@@ -187,5 +207,98 @@ final class Schema {
 			KEY idx_run_id (run_id)
 		) {$charset};";
 		dbDelta( $sql_jobs );
+
+		$batches     = self::content_batches_table();
+		$sql_batches = "CREATE TABLE {$batches} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			request_id VARCHAR(128) NOT NULL,
+			connection_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			organization_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			user_scope VARCHAR(191) NOT NULL DEFAULT '',
+			status VARCHAR(32) NOT NULL DEFAULT 'draft',
+			total_items INT UNSIGNED NOT NULL DEFAULT 0,
+			processed_items INT UNSIGNED NOT NULL DEFAULT 0,
+			failed_items INT UNSIGNED NOT NULL DEFAULT 0,
+			payload_json LONGTEXT NULL,
+			result_json LONGTEXT NULL,
+			error_code VARCHAR(64) NULL,
+			error_message TEXT NULL,
+			created_gmt DATETIME NOT NULL,
+			updated_gmt DATETIME NOT NULL,
+			expires_gmt DATETIME NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uq_request_id (request_id),
+			KEY idx_conn_status (connection_id, status),
+			KEY idx_expires (expires_gmt)
+		) {$charset};";
+		dbDelta( $sql_batches );
+
+		$backups     = self::content_backups_table();
+		$sql_backups = "CREATE TABLE {$backups} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			batch_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			change_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			connection_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			post_id BIGINT UNSIGNED NOT NULL,
+			checksum CHAR(64) NOT NULL,
+			payload_json LONGTEXT NOT NULL,
+			seo_adapter VARCHAR(32) NOT NULL DEFAULT '',
+			status VARCHAR(20) NOT NULL DEFAULT 'ready',
+			created_gmt DATETIME NOT NULL,
+			expires_gmt DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			KEY idx_batch (batch_id),
+			KEY idx_change (change_id),
+			KEY idx_post (post_id),
+			KEY idx_conn_expires (connection_id, expires_gmt)
+		) {$charset};";
+		dbDelta( $sql_backups );
+
+		$changes     = self::content_changes_table();
+		$sql_changes = "CREATE TABLE {$changes} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			batch_id BIGINT UNSIGNED NOT NULL,
+			connection_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			post_id BIGINT UNSIGNED NOT NULL,
+			idempotency_key VARCHAR(128) NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'pending',
+			risk_level VARCHAR(16) NOT NULL DEFAULT 'safe',
+			reason TEXT NULL,
+			proposed_json LONGTEXT NULL,
+			preview_json LONGTEXT NULL,
+			backup_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			before_checksum CHAR(64) NOT NULL DEFAULT '',
+			after_checksum CHAR(64) NOT NULL DEFAULT '',
+			recheck_json LONGTEXT NULL,
+			attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+			max_attempts SMALLINT UNSIGNED NOT NULL DEFAULT 3,
+			error_code VARCHAR(64) NULL,
+			error_message TEXT NULL,
+			locked_until_gmt DATETIME NULL,
+			created_gmt DATETIME NOT NULL,
+			updated_gmt DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uq_batch_idem (batch_id, idempotency_key),
+			KEY idx_batch_status (batch_id, status),
+			KEY idx_post_status (post_id, status),
+			KEY idx_conn (connection_id)
+		) {$charset};";
+		dbDelta( $sql_changes );
+
+		$locks     = self::content_locks_table();
+		$sql_locks = "CREATE TABLE {$locks} (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			post_id BIGINT UNSIGNED NOT NULL,
+			connection_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			batch_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			change_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			owner_token VARCHAR(64) NOT NULL,
+			locked_until_gmt DATETIME NOT NULL,
+			created_gmt DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uq_post_id (post_id),
+			KEY idx_expires (locked_until_gmt)
+		) {$charset};";
+		dbDelta( $sql_locks );
 	}
 }

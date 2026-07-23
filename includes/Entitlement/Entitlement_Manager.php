@@ -492,8 +492,9 @@ final class Entitlement_Manager {
 				'schema'        => $this->has_feature( 'schema' ) || $eval['allowed'],
 				'yoast_sync'    => $this->has_feature( 'yoast_sync' ) || $eval['allowed'],
 				'rankmath_sync' => $this->has_feature( 'rankmath_sync' ) || $eval['allowed'],
-				// Production: only when SaaS enabled_features includes seo_audit.
+				// Production: only when SaaS enabled_features includes seo_audit / content_ops.
 				'seo_audit'     => $this->has_feature( 'seo_audit' ),
+				'content_ops'   => $this->has_feature( 'content_ops' ),
 			),
 		);
 	}

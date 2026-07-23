@@ -4,7 +4,7 @@ Tags: seo, wordpress, seoauto, schema, open-graph
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.1.0-rc.1
+Stable tag: 1.2.0-dev
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,6 +15,7 @@ Kết nối WordPress với SEOAuto — Open Graph, Schema, đồng bộ Rank Ma
 SEOAuto SEO Helper ghép nối site WordPress với nền tảng SEOAuto qua mã một lần (SA-XXXX-XXXX).
 
 * REST `/wp-json/seoauto/v1`: status, connect, disconnect, entitlement/refresh, posts, media, seo-meta, health-check, logs (HMAC only)
+* Phase 2 ContentOps: Preview → Backup → Apply → Recheck → Rollback
 * Không hard-code gói — entitlement do SEOAuto ký và đẩy xuống
 * Không dùng eval, không sửa wp-config.php, không tạo admin, không tắt plugin bảo mật
 
@@ -25,6 +26,15 @@ SEOAuto SEO Helper ghép nối site WordPress với nền tảng SEOAuto qua mã
 3. Vào Settings → SEOAuto SEO Helper, nhập mã SA-XXXX-XXXX từ SEOAuto
 
 == Changelog ==
+
+= 1.2.0-dev =
+* Phase 2 ContentOps: Preview (read-only) → Backup → Apply (queue/idempotent/locks) → Recheck → Rollback.
+* Full post snapshot: title, content, excerpt, slug, status, taxonomies, featured image, custom fields, SEO meta (Rank Math/Yoast/AIOSEO/native).
+* Backup failure blocks Apply; rollback conflict when post changed after apply; 30-day backup retention + cron purge.
+* Feature gate: content_ops. Does not modify Billing, HMAC, pairing, or updater.
+
+= 1.1.0-rc.1 =
+* Phase 1 release candidate: SEO Audit + Private Plugin Updater on staging.
 
 = 1.1.0-dev =
 * Phase 1: SEO Audit Engine (scan-only) — WP-Cron batch jobs, issue store, admin Audit/Jobs, REST /audit/* + /jobs/{id}.

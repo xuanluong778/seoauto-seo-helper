@@ -13,6 +13,8 @@ use SEOAuto\SEOHelper\Admin\Admin_Menu;
 use SEOAuto\SEOHelper\Audit\Audit_Logger;
 use SEOAuto\SEOHelper\Auth\Request_Authenticator;
 use SEOAuto\SEOHelper\Connection\Connection_Manager;
+use SEOAuto\SEOHelper\ContentOps\ContentOps_Cron;
+use SEOAuto\SEOHelper\ContentOps\ContentOps_Service;
 use SEOAuto\SEOHelper\Cron\Cron_Scheduler;
 use SEOAuto\SEOHelper\Entitlement\Entitlement_Client;
 use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
@@ -20,6 +22,7 @@ use SEOAuto\SEOHelper\Media\Media_Service;
 use SEOAuto\SEOHelper\Post\Post_Service;
 use SEOAuto\SEOHelper\Post\Publishing_Settings;
 use SEOAuto\SEOHelper\Rest\Audit_Rest_Controller;
+use SEOAuto\SEOHelper\Rest\ContentOps_Rest_Controller;
 use SEOAuto\SEOHelper\Rest\Rest_Controller;
 use SEOAuto\SEOHelper\Seo\Seo_Facade;
 use SEOAuto\SEOHelper\SeoAudit\Audit_Job_Runner;
@@ -41,6 +44,7 @@ final class Plugin {
 	private Cron_Scheduler $cron;
 	private Audit_Job_Runner $audit_jobs;
 	private Update_Manager $updater;
+	private ContentOps_Service $content_ops;
 
 	public static function instance(): self {
 		if ( null === self::$instance ) {
@@ -79,6 +83,12 @@ final class Plugin {
 			$this->entitlement,
 			$this->audit
 		);
+		$this->content_ops = new ContentOps_Service(
+			$this->connection,
+			$this->entitlement,
+			$this->seo,
+			$this->audit
+		);
 	}
 
 	public function boot(): void {
@@ -90,7 +100,8 @@ final class Plugin {
 			$this->audit,
 			$this->publishing,
 			$this->seo,
-			$this->audit_jobs
+			$this->audit_jobs,
+			$this->content_ops
 		) )->register();
 		( new Rest_Controller(
 			$this->connection,
@@ -103,12 +114,14 @@ final class Plugin {
 			$this->publishing
 		) )->register();
 		( new Audit_Rest_Controller( $this->auth, $this->audit_jobs ) )->register();
+		( new ContentOps_Rest_Controller( $this->auth, $this->content_ops ) )->register();
 
 		$this->seo->register_hooks();
 		$this->cron->register();
 		$this->audit_jobs->register();
 		$this->updater->register();
 		( new Update_Admin( $this->updater ) )->register();
+		( new ContentOps_Cron( $this->content_ops ) )->register();
 
 		\SEOAuto\SEOHelper\Post\Schema::maybe_upgrade();
 	}
@@ -131,5 +144,9 @@ final class Plugin {
 
 	public function updater(): Update_Manager {
 		return $this->updater;
+	}
+
+	public function content_ops(): ContentOps_Service {
+		return $this->content_ops;
 	}
 }

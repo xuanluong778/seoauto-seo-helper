@@ -34,6 +34,9 @@ final class Audit_Logger {
 		'api_key',
 		'cookie',
 		'nonce',
+		'signed_url',
+		'presigned_url',
+		'download_url',
 	);
 
 	/** @var list<string> */

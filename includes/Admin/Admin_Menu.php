@@ -11,6 +11,7 @@ namespace SEOAuto\SEOHelper\Admin;
 
 use SEOAuto\SEOHelper\Audit\Audit_Logger;
 use SEOAuto\SEOHelper\Connection\Connection_Manager;
+use SEOAuto\SEOHelper\ContentOps\ContentOps_Service;
 use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
 use SEOAuto\SEOHelper\Post\Publishing_Settings;
 use SEOAuto\SEOHelper\Seo\Seo_Facade;
@@ -19,11 +20,12 @@ use SEOAuto\SEOHelper\SeoAudit\Object_Context;
 
 final class Admin_Menu {
 
-	public const SLUG_OVERVIEW = 'seoauto-helper';
-	public const SLUG_CONNECT  = 'seoauto-helper-connect';
-	public const SLUG_AUDIT    = 'seoauto-helper-audit';
-	public const SLUG_JOBS     = 'seoauto-helper-jobs';
-	public const SLUG_LOGS     = 'seoauto-helper-logs';
+	public const SLUG_OVERVIEW    = 'seoauto-helper';
+	public const SLUG_CONNECT     = 'seoauto-helper-connect';
+	public const SLUG_AUDIT       = 'seoauto-helper-audit';
+	public const SLUG_JOBS        = 'seoauto-helper-jobs';
+	public const SLUG_CONTENT_OPS = 'seoauto-helper-content-ops';
+	public const SLUG_LOGS        = 'seoauto-helper-logs';
 
 	public function __construct(
 		private Connection_Manager $connection,
@@ -31,7 +33,8 @@ final class Admin_Menu {
 		private Audit_Logger $audit,
 		private Publishing_Settings $publishing,
 		private Seo_Facade $seo,
-		private Audit_Job_Runner $audit_jobs
+		private Audit_Job_Runner $audit_jobs,
+		private ?ContentOps_Service $content_ops = null
 	) {}
 
 	public function register(): void {
@@ -85,6 +88,15 @@ final class Admin_Menu {
 			'manage_options',
 			self::SLUG_JOBS,
 			array( $this, 'render_jobs' )
+		);
+
+		add_submenu_page(
+			self::SLUG_OVERVIEW,
+			__( 'ContentOps', 'seoauto-seo-helper' ),
+			__( 'ContentOps', 'seoauto-seo-helper' ),
+			'manage_options',
+			self::SLUG_CONTENT_OPS,
+			array( $this, 'render_content_ops' )
 		);
 
 		add_submenu_page(
@@ -147,6 +159,9 @@ final class Admin_Menu {
 		if ( $action === 'audit_resume_job' ) {
 			$this->handle_audit_resume_job();
 		}
+		if ( $action === 'content_ops_rollback' ) {
+			$this->handle_content_ops_rollback();
+		}
 	}
 
 	public function render_overview(): void {
@@ -197,6 +212,42 @@ final class Admin_Menu {
 			return;
 		}
 		( new Jobs_Page( $this->audit_jobs, $this->entitlement ) )->render();
+	}
+
+	public function render_content_ops(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( null === $this->content_ops ) {
+			return;
+		}
+		( new ContentOps_Page( $this->content_ops, $this->entitlement ) )->render();
+	}
+
+	private function handle_content_ops_rollback(): void {
+		if ( null === $this->content_ops ) {
+			return;
+		}
+		$batch_id = isset( $_POST['batch_id'] ) ? (int) $_POST['batch_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( $batch_id <= 0 ) {
+			add_settings_error( 'seoauto_helper', 'co_bad', __( 'Thiếu batch_id.', 'seoauto-seo-helper' ), 'error' );
+			return;
+		}
+		$result = $this->content_ops->rollback( array( 'batch_id' => $batch_id ) );
+		if ( is_wp_error( $result ) ) {
+			add_settings_error( 'seoauto_helper', 'co_rb', $result->get_error_message(), 'error' );
+			return;
+		}
+		add_settings_error(
+			'seoauto_helper',
+			'co_rb_ok',
+			sprintf(
+				/* translators: %s: batch status */
+				__( 'Rollback batch xong — status: %s', 'seoauto-seo-helper' ),
+				(string) ( $result['status'] ?? '' )
+			),
+			'success'
+		);
 	}
 
 	private function handle_audit_start_scan(): void {

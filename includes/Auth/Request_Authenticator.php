@@ -195,8 +195,8 @@ final class Request_Authenticator {
 			return true;
 		}
 
-		// seo_audit must be explicitly granted — never implied by seo_helper in production.
-		if ( $feature === 'seo_audit' ) {
+		// Explicit features — never implied by seo_helper in production.
+		if ( in_array( $feature, array( 'seo_audit', 'content_ops' ), true ) ) {
 			if ( $this->dev_entitlement_fallback()
 				&& $this->entitlement->is_allowed()
 				&& $this->entitlement->has_feature( 'seo_helper' )
@@ -205,7 +205,7 @@ final class Request_Authenticator {
 			}
 			$caps    = $this->entitlement->capabilities();
 			$cap_map = is_array( $caps['capabilities'] ?? null ) ? $caps['capabilities'] : array();
-			return ! empty( $cap_map['seo_audit'] );
+			return ! empty( $cap_map[ $feature ] );
 		}
 
 		if ( $this->entitlement->has_feature( 'seo_helper' ) ) {

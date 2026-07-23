@@ -71,6 +71,10 @@ final class Activator {
 			wp_schedule_event( time() + 60, 'seoauto_every_minute', 'seoauto_helper_process_audit_jobs' );
 		}
 
+		if ( ! wp_next_scheduled( 'seoauto_helper_content_ops_purge' ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'seoauto_helper_content_ops_purge' );
+		}
+
 		if ( ! function_exists( 'dbDelta' ) ) {
 			require_once \ABSPATH . 'wp-admin/includes/upgrade.php';
 		}
