@@ -21,10 +21,10 @@ final class Jobs_Page {
 
 	public function render(): void {
 		Admin_View::wrap_start(
-			__( 'Jobs', 'seoauto-seo-helper' ),
-			__( 'Hàng đợi WP-Cron (audit scan). Có thể hủy hoặc tiếp tục.', 'seoauto-seo-helper' )
+			__( 'Công việc quét', 'seoauto-seo-helper' ),
+			__( 'Theo dõi các lần quét SEO đang chạy. Có thể hủy hoặc tiếp tục.', 'seoauto-seo-helper' )
 		);
-		Admin_View::nav_tabs( 'jobs' );
+		Admin_View::nav_tabs( 'jobs', $this->entitlement );
 
 		$caps = $this->entitlement->capabilities();
 		Admin_View::render_status_notices(

@@ -147,7 +147,7 @@ check(
 );
 
 check(
-	'blocked message includes endpoint path',
+	'blocked message is user-friendly without endpoint jargon',
 	static function () use ( $wordfence_body ): bool {
 		$block = Firewall_Guidance::detect_block(
 			403,
@@ -160,19 +160,20 @@ check(
 			return false;
 		}
 		$msg = Firewall_Guidance::blocked_message( $block );
-		return str_contains( $msg, '/wp-json/seoauto/v1/posts' )
-			&& str_contains( $msg, 'Application Password' );
+		return str_contains( $msg, 'Wordfence' )
+			&& ! str_contains( $msg, '/wp-json/' )
+			&& ! str_contains( $msg, 'HMAC' );
 	}
 );
 
 check(
-	'Live Traffic steps mention Wordfence Tools and manual allowlist',
+	'Live Traffic steps mention Wordfence Tools',
 	static function (): bool {
 		$steps = Firewall_Guidance::live_traffic_steps();
 		$joined = implode( ' ', $steps );
 		return str_contains( $joined, 'Live Traffic' )
 			&& str_contains( $joined, 'Wordfence' )
-			&& str_contains( $joined, 'không tự allowlist' );
+			&& str_contains( $joined, 'không tự tắt Wordfence' );
 	}
 );
 

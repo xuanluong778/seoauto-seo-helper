@@ -101,7 +101,8 @@ final class Plugin {
 			$this->publishing,
 			$this->seo,
 			$this->audit_jobs,
-			$this->content_ops
+			$this->content_ops,
+			$this->updater
 		) )->register();
 		( new Rest_Controller(
 			$this->connection,

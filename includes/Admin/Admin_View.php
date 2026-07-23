@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace SEOAuto\SEOHelper\Admin;
 
+use SEOAuto\SEOHelper\ContentOps\ContentOps_Service;
+use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
+
 final class Admin_View {
 
 	public static function wrap_start( string $title, string $description = '' ): void {
@@ -39,20 +42,17 @@ final class Admin_View {
 		}
 		if ( $network_grace ) {
 			echo '<div class="notice notice-info inline seoauto-helper-network-notice"><p>';
-			echo '<strong>' . esc_html__( 'Mất kết nối SEOAuto tạm thời', 'seoauto-seo-helper' ) . '</strong>';
-			echo ' — ' . esc_html( (string) ( $caps['lock_message'] ?? '' ) );
-			if ( ! empty( $caps['last_api_error'] ) ) {
-				echo '<br /><em>' . esc_html( (string) $caps['last_api_error'] ) . '</em>';
-			}
+			echo '<strong>' . esc_html__( 'Tạm thời mất kết nối SEOAuto', 'seoauto-seo-helper' ) . '</strong>';
+			echo ' — ' . esc_html__( 'Plugin vẫn hoạt động trong thời gian chờ kết nối lại. Hãy thử “Kiểm tra kết nối” sau vài phút.', 'seoauto-seo-helper' );
 			echo '</p></div>';
 		}
 		if ( $locked ) {
 			echo '<div class="notice notice-error inline seoauto-helper-lock-notice"><p>';
-			echo '<strong>' . esc_html__( 'Gói hết hạn / Plugin LOCKED', 'seoauto-seo-helper' ) . '</strong>';
-			echo ' — ' . esc_html( (string) ( $caps['lock_message'] ?? '' ) );
+			echo '<strong>' . esc_html__( 'Gói đã hết hạn', 'seoauto-seo-helper' ) . '</strong>';
+			echo ' — ' . esc_html__( 'Một số tính năng bị tạm khóa. Gia hạn gói trên SEOAuto để tiếp tục dùng đầy đủ.', 'seoauto-seo-helper' );
 			if ( $upgrade_url !== '' ) {
 				echo ' <a href="' . esc_url( $upgrade_url ) . '" target="_blank" rel="noopener noreferrer">';
-				echo esc_html__( 'Nâng cấp gói trên SEOAuto', 'seoauto-seo-helper' ) . '</a>';
+				echo esc_html__( 'Gia hạn / nâng cấp gói', 'seoauto-seo-helper' ) . '</a>';
 			}
 			echo '</p></div>';
 		}
@@ -64,9 +64,9 @@ final class Admin_View {
 		bool $connected
 	): void {
 		if ( $network_grace ) {
-			echo '<span class="seoauto-helper-badge is-degraded">' . esc_html__( 'Mất kết nối (grace)', 'seoauto-seo-helper' ) . '</span>';
+			echo '<span class="seoauto-helper-badge is-degraded">' . esc_html__( 'Mất kết nối tạm thời', 'seoauto-seo-helper' ) . '</span>';
 		} elseif ( $locked ) {
-			echo '<span class="seoauto-helper-badge is-locked">' . esc_html__( 'LOCKED — gói hết hạn', 'seoauto-seo-helper' ) . '</span>';
+			echo '<span class="seoauto-helper-badge is-locked">' . esc_html__( 'Gói hết hạn', 'seoauto-seo-helper' ) . '</span>';
 		} elseif ( $connected ) {
 			echo '<span class="seoauto-helper-badge is-ok">' . esc_html__( 'Đã kết nối', 'seoauto-seo-helper' ) . '</span>';
 		} else {
@@ -74,7 +74,7 @@ final class Admin_View {
 		}
 	}
 
-	public static function nav_tabs( string $active ): void {
+	public static function nav_tabs( string $active, ?Entitlement_Manager $entitlement = null ): void {
 		$pages = array(
 			'overview' => array(
 				'slug'  => Admin_Menu::SLUG_OVERVIEW,
@@ -90,13 +90,28 @@ final class Admin_View {
 			),
 			'jobs'     => array(
 				'slug'  => Admin_Menu::SLUG_JOBS,
-				'label' => __( 'Jobs', 'seoauto-seo-helper' ),
+				'label' => __( 'Công việc quét', 'seoauto-seo-helper' ),
 			),
 			'logs'     => array(
 				'slug'  => Admin_Menu::SLUG_LOGS,
 				'label' => __( 'Nhật ký', 'seoauto-seo-helper' ),
 			),
 		);
+
+		if ( $entitlement instanceof Entitlement_Manager
+			&& $entitlement->has_feature( ContentOps_Service::FEATURE ) ) {
+			$pages = array_merge(
+				array_slice( $pages, 0, 2, true ),
+				array(
+					'content_ops' => array(
+						'slug'  => Admin_Menu::SLUG_CONTENT_OPS,
+						'label' => __( 'Sửa SEO & Khôi phục', 'seoauto-seo-helper' ),
+					),
+				),
+				array_slice( $pages, 2, null, true )
+			);
+		}
+
 		echo '<nav class="nav-tab-wrapper seoauto-helper-tabs">';
 		foreach ( $pages as $key => $page ) {
 			$class = $key === $active ? 'nav-tab nav-tab-active' : 'nav-tab';

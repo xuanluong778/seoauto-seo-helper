@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace SEOAuto\SEOHelper\Admin;
 
 use SEOAuto\SEOHelper\Audit\Audit_Logger;
+use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
 
 final class Logs_Page {
 
 	public function __construct(
-		private Audit_Logger $audit
+		private Audit_Logger $audit,
+		private ?Entitlement_Manager $entitlement = null
 	) {}
 
 	public function render(): void {
@@ -22,10 +24,10 @@ final class Logs_Page {
 		$logs      = $this->audit->all_for_display( 200 );
 
 		Admin_View::wrap_start(
-			__( 'SEOAuto Helper → Nhật ký', 'seoauto-seo-helper' ),
-			__( 'Không hiển thị secret, token, signature, mật khẩu hoặc nội dung bài đầy đủ.', 'seoauto-seo-helper' )
+			__( 'Nhật ký', 'seoauto-seo-helper' ),
+			__( 'Lịch sử hoạt động an toàn — không hiển thị mật khẩu hay thông tin nhạy cảm.', 'seoauto-seo-helper' )
 		);
-		Admin_View::nav_tabs( 'logs' );
+		Admin_View::nav_tabs( 'logs', $this->entitlement );
 		?>
 		<div class="seoauto-helper-card seoauto-helper-card-wide">
 			<h2><?php echo esc_html__( 'Giữ nhật ký', 'seoauto-seo-helper' ); ?></h2>

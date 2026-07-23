@@ -25,7 +25,7 @@ final class Audit_Page {
 			__( 'SEO Audit', 'seoauto-seo-helper' ),
 			__( 'Quét SEO hàng loạt (WP-Cron). Phase 1: chỉ quét — chưa Auto Fix.', 'seoauto-seo-helper' )
 		);
-		Admin_View::nav_tabs( 'audit' );
+		Admin_View::nav_tabs( 'audit', $this->entitlement );
 
 		$locked = $this->entitlement->is_locked();
 		$caps   = $this->entitlement->capabilities();

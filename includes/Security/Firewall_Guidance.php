@@ -146,15 +146,10 @@ final class Firewall_Guidance {
 	 * @param array{source:string,http_code:int,endpoint:string,method:string,detected_at:string} $block
 	 */
 	public static function blocked_message( array $block ): string {
-		return sprintf(
-			/* translators: 1: HTTP method 2: REST path 3: HTTP status */
-			__(
-				'Wordfence chặn yêu cầu HMAC tới %1$s %2$s (HTTP %3$d). SEOAuto không dùng Application Password hay mã 2FA — chỉ pairing + HMAC.',
-				'seoauto-seo-helper'
-			),
-			$block['method'],
-			$block['endpoint'],
-			$block['http_code']
+		unset( $block ); // Keep signature; UI hides technical endpoint details.
+		return __(
+			'Bảo mật Wordfence đang chặn kết nối từ SEOAuto. Plugin không dùng mật khẩu Administrator hay mã 2FA — chỉ dùng mã ghép nối.',
+			'seoauto-seo-helper'
 		);
 	}
 
@@ -165,10 +160,9 @@ final class Firewall_Guidance {
 	 */
 	public static function live_traffic_steps(): array {
 		return array(
-			__( 'WordPress Admin → Wordfence → Tools → Live Traffic.', 'seoauto-seo-helper' ),
-			__( 'Lọc theo thời gian lỗi gần nhất và tìm request bị chặn (403) tới /wp-json/seoauto/v1/…', 'seoauto-seo-helper' ),
-			__( 'Xem chi tiết request: URL, IP nguồn (SEOAuto worker), User-Agent.', 'seoauto-seo-helper' ),
-			__( 'Nếu cần cho phép, admin tự thêm rule trong Wordfence (Allowlist) — plugin SEOAuto không tự allowlist IP hay tắt firewall.', 'seoauto-seo-helper' ),
+			__( 'Vào Wordfence → Tools → Live Traffic.', 'seoauto-seo-helper' ),
+			__( 'Tìm các yêu cầu bị chặn gần thời điểm lỗi.', 'seoauto-seo-helper' ),
+			__( 'Nếu cần, tự thêm quy tắc cho phép trong Wordfence. SEOAuto không tự tắt Wordfence.', 'seoauto-seo-helper' ),
 		);
 	}
 
@@ -179,20 +173,14 @@ final class Firewall_Guidance {
 	 */
 	public static function render_notice( array $block ): void {
 		echo '<div class="notice notice-warning inline seoauto-helper-firewall-notice"><p>';
-		echo '<strong>' . esc_html__( 'Wordfence / WAF chặn REST SEOAuto', 'seoauto-seo-helper' ) . '</strong><br />';
+		echo '<strong>' . esc_html__( 'Wordfence đang chặn kết nối SEOAuto', 'seoauto-seo-helper' ) . '</strong><br />';
 		echo esc_html( self::blocked_message( $block ) );
-		echo '<br /><br /><strong>' . esc_html__( 'Kiểm tra Live Traffic (thủ công)', 'seoauto-seo-helper' ) . '</strong>';
+		echo '<br /><br /><strong>' . esc_html__( 'Cách kiểm tra', 'seoauto-seo-helper' ) . '</strong>';
 		echo '<ol class="seoauto-helper-firewall-steps" style="margin:8px 0 0 18px;">';
 		foreach ( self::live_traffic_steps() as $step ) {
 			echo '<li>' . esc_html( $step ) . '</li>';
 		}
-		echo '</ol>';
-		echo '<p class="description" style="margin-top:10px;">';
-		echo esc_html__(
-			'Plugin không tự tắt Wordfence, không tự allowlist IP và không bypass firewall.',
-			'seoauto-seo-helper'
-		);
-		echo '</p></div>';
+		echo '</ol></div>';
 	}
 
 	/**

@@ -17,6 +17,7 @@ use SEOAuto\SEOHelper\Post\Publishing_Settings;
 use SEOAuto\SEOHelper\Seo\Seo_Facade;
 use SEOAuto\SEOHelper\SeoAudit\Audit_Job_Runner;
 use SEOAuto\SEOHelper\SeoAudit\Object_Context;
+use SEOAuto\SEOHelper\Updater\Update_Manager;
 
 final class Admin_Menu {
 
@@ -34,7 +35,8 @@ final class Admin_Menu {
 		private Publishing_Settings $publishing,
 		private Seo_Facade $seo,
 		private Audit_Job_Runner $audit_jobs,
-		private ?ContentOps_Service $content_ops = null
+		private ?ContentOps_Service $content_ops = null,
+		private ?Update_Manager $updater = null
 	) {}
 
 	public function register(): void {
@@ -83,21 +85,24 @@ final class Admin_Menu {
 
 		add_submenu_page(
 			self::SLUG_OVERVIEW,
-			__( 'Jobs', 'seoauto-seo-helper' ),
-			__( 'Jobs', 'seoauto-seo-helper' ),
+			__( 'Công việc quét', 'seoauto-seo-helper' ),
+			__( 'Công việc quét', 'seoauto-seo-helper' ),
 			'manage_options',
 			self::SLUG_JOBS,
 			array( $this, 'render_jobs' )
 		);
 
-		add_submenu_page(
-			self::SLUG_OVERVIEW,
-			__( 'ContentOps', 'seoauto-seo-helper' ),
-			__( 'ContentOps', 'seoauto-seo-helper' ),
-			'manage_options',
-			self::SLUG_CONTENT_OPS,
-			array( $this, 'render_content_ops' )
-		);
+		if ( $this->content_ops instanceof ContentOps_Service
+			&& $this->entitlement->has_feature( ContentOps_Service::FEATURE ) ) {
+			add_submenu_page(
+				self::SLUG_OVERVIEW,
+				__( 'Sửa SEO & Khôi phục', 'seoauto-seo-helper' ),
+				__( 'Sửa SEO & Khôi phục', 'seoauto-seo-helper' ),
+				'manage_options',
+				self::SLUG_CONTENT_OPS,
+				array( $this, 'render_content_ops' )
+			);
+		}
 
 		add_submenu_page(
 			self::SLUG_OVERVIEW,
@@ -174,8 +179,7 @@ final class Admin_Menu {
 		( new Overview_Page(
 			$this->connection,
 			$this->entitlement,
-			$this->audit,
-			new Site_Info( $this->connection, $this->seo )
+			$this->updater
 		) )->render();
 	}
 
@@ -197,7 +201,7 @@ final class Admin_Menu {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		( new Logs_Page( $this->audit ) )->render();
+		( new Logs_Page( $this->audit, $this->entitlement ) )->render();
 	}
 
 	public function render_audit(): void {
@@ -218,34 +222,43 @@ final class Admin_Menu {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		if ( null === $this->content_ops ) {
-			return;
+		if ( null === $this->content_ops
+			|| ! $this->entitlement->has_feature( ContentOps_Service::FEATURE ) ) {
+			wp_die( esc_html__( 'Tính năng này chưa được cấp cho website của bạn.', 'seoauto-seo-helper' ) );
 		}
 		( new ContentOps_Page( $this->content_ops, $this->entitlement ) )->render();
 	}
 
 	private function handle_content_ops_rollback(): void {
-		if ( null === $this->content_ops ) {
+		if ( null === $this->content_ops
+			|| ! $this->entitlement->has_feature( ContentOps_Service::FEATURE ) ) {
+			add_settings_error(
+				'seoauto_helper',
+				'co_denied',
+				__( 'Tính năng Sửa SEO & Khôi phục chưa được cấp.', 'seoauto-seo-helper' ),
+				'error'
+			);
 			return;
 		}
 		$batch_id = isset( $_POST['batch_id'] ) ? (int) $_POST['batch_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if ( $batch_id <= 0 ) {
-			add_settings_error( 'seoauto_helper', 'co_bad', __( 'Thiếu batch_id.', 'seoauto-seo-helper' ), 'error' );
+			add_settings_error( 'seoauto_helper', 'co_bad', __( 'Không tìm thấy bản ghi cần khôi phục.', 'seoauto-seo-helper' ), 'error' );
 			return;
 		}
 		$result = $this->content_ops->rollback( array( 'batch_id' => $batch_id ) );
 		if ( is_wp_error( $result ) ) {
-			add_settings_error( 'seoauto_helper', 'co_rb', $result->get_error_message(), 'error' );
+			add_settings_error(
+				'seoauto_helper',
+				'co_rb',
+				__( 'Khôi phục thất bại. Vui lòng thử lại hoặc liên hệ hỗ trợ SEOAuto.', 'seoauto-seo-helper' ),
+				'error'
+			);
 			return;
 		}
 		add_settings_error(
 			'seoauto_helper',
 			'co_rb_ok',
-			sprintf(
-				/* translators: %s: batch status */
-				__( 'Rollback batch xong — status: %s', 'seoauto-seo-helper' ),
-				(string) ( $result['status'] ?? '' )
-			),
+			__( 'Đã khôi phục thành công.', 'seoauto-seo-helper' ),
 			'success'
 		);
 	}
