@@ -19,6 +19,8 @@ final class Package_Verifier {
 		'www.seoauto.vn',
 		'cdn.seoauto.vn',
 		'downloads.seoauto.vn',
+		'staging.seoauto.vn',
+		'seoauto-api-staging.siteauto.vn',
 	);
 
 	/**
