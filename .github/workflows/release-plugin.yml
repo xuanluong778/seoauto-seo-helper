@@ -98,6 +98,7 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
           R2_PREFIX: ${{ secrets.R2_PREFIX }}
+          R2_FORCE_PATH_STYLE: ${{ secrets.R2_FORCE_PATH_STYLE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
@@ -107,6 +108,7 @@ jobs:
           ROLLOUT_PERCENT: ${{ vars.ROLLOUT_PERCENT }}
         run: |
           export R2_PREFIX="${R2_PREFIX:-plugin-releases}"
+          export R2_FORCE_PATH_STYLE="${R2_FORCE_PATH_STYLE:-1}"
           export ROLLOUT_PERCENT="${ROLLOUT_PERCENT:-100}"
           bash scripts/ci/upload-and-register-release.sh release-manifest.json seoauto-seo-helper.zip
 

@@ -23,6 +23,16 @@ STORAGE_KEY=$(python3 -c "import json;print(json.load(open('${MANIFEST}'))['stor
 PREFIX="${R2_PREFIX:-plugin-releases}"
 FULL_KEY="${PREFIX%/}/${STORAGE_KEY}"
 
+# MinIO / some S3-compatible endpoints need path-style addressing.
+if [[ "${R2_FORCE_PATH_STYLE:-}" =~ ^(1|true|yes|on)$ ]]; then
+  mkdir -p "${HOME}/.aws"
+  cat > "${HOME}/.aws/config" <<'AWSCFG'
+[default]
+s3 =
+    addressing_style = path
+AWSCFG
+fi
+
 echo "Uploading object under prefix=${PREFIX} (full URL not logged)"
 aws s3 cp "${ZIP}" "s3://${R2_BUCKET}/${FULL_KEY}" \
   --endpoint-url "${R2_ENDPOINT_URL}" \
