@@ -16,6 +16,7 @@ suites=(
   tests/test_boot_smoke.php
   tests/test_private_updater.php
   tests/test_seo_audit_engine.php
+  tests/test_content_ops.php
   tests/test_lifecycle.php
   tests/test_security.php
   tests/test_entitlement_lock.php

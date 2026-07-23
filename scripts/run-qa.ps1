@@ -64,6 +64,7 @@ $tests = @(
     'test_lifecycle.php',
     'test_secret_redaction.php',
     'test_seo_audit_engine.php',
+    'test_content_ops.php',
     'test_private_updater.php',
     'test_load_all_classes.php',
     'test_boot_smoke.php'

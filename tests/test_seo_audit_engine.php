@@ -527,7 +527,7 @@ check( 'includes page', in_array( 'page', $types, true ) );
 check( 'includes product', in_array( 'product', $types, true ) );
 
 echo "\n=== Schema DB_VERSION ===\n";
-check( 'DB_VERSION is 3', \SEOAuto\SEOHelper\Post\Schema::DB_VERSION === 3 );
+check( 'DB_VERSION is 4', \SEOAuto\SEOHelper\Post\Schema::DB_VERSION === 4 );
 check( 'audit_runs table name', str_contains( \SEOAuto\SEOHelper\Post\Schema::audit_runs_table(), 'seoauto_helper_audit_runs' ) );
 check( 'audit_issues table name', str_contains( \SEOAuto\SEOHelper\Post\Schema::audit_issues_table(), 'seoauto_helper_audit_issues' ) );
 check( 'jobs table name', str_contains( \SEOAuto\SEOHelper\Post\Schema::jobs_table(), 'seoauto_helper_jobs' ) );
