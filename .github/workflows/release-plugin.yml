@@ -108,7 +108,7 @@ jobs:
           ROLLOUT_PERCENT: ${{ vars.ROLLOUT_PERCENT }}
         run: |
           export R2_PREFIX="${R2_PREFIX:-plugin-releases}"
-          export R2_FORCE_PATH_STYLE="${R2_FORCE_PATH_STYLE:-1}"
+          export R2_FORCE_PATH_STYLE="${R2_FORCE_PATH_STYLE:-}"
           export ROLLOUT_PERCENT="${ROLLOUT_PERCENT:-100}"
           bash scripts/ci/upload-and-register-release.sh release-manifest.json seoauto-seo-helper.zip
 
