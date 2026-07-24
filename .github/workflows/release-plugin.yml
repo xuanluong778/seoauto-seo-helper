@@ -18,6 +18,8 @@ jobs:
   release:
     name: Test · Package · Upload draft
     runs-on: ubuntu-latest
+    # Production draft/upload credentials live in this Environment (not repo staging secrets).
+    environment: plugin-release-beta
     env:
       PHP_VERSION: "8.1"
 
@@ -60,6 +62,25 @@ jobs:
           echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Guard production Environment targets
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          SEOAUTO_API_BASE: ${{ secrets.SEOAUTO_API_BASE }}
+        run: |
+          set -euo pipefail
+          if [[ "${R2_BUCKET}" != "seoauto-plugin-production" ]]; then
+            echo "REFUSE: R2_BUCKET is not seoauto-plugin-production" >&2
+            exit 1
+          fi
+          base="${SEOAUTO_API_BASE%/}"
+          if [[ "${base}" != "https://seoauto.vn" ]]; then
+            echo "REFUSE: SEOAUTO_API_BASE is not https://seoauto.vn" >&2
+            exit 1
+          fi
+          echo "PROD_TARGET_GUARD=PASS"
+          echo "bucket=seoauto-plugin-production"
+          echo "api_base=https://seoauto.vn"
+
       - name: Verify version consistency
         run: |
           chmod +x scripts/ci/verify-version.sh scripts/package.sh scripts/run-qa.sh scripts/ci/upload-and-register-release.sh
@@ -77,11 +98,12 @@ jobs:
           ZIP_PATH="$ROOT/seoauto-seo-helper.zip"
           rm -rf "$STAGE" "$ZIP_PATH"
           mkdir -p "$STAGE"
-          for item in seoauto-seo-helper.php uninstall.php readme.txt README.md includes assets docs; do
+          # Runtime package only — no docs/tests/dev artifacts.
+          for item in seoauto-seo-helper.php uninstall.php readme.txt includes assets; do
             [[ -e "$ROOT/$item" ]] && cp -a "$ROOT/$item" "$STAGE/"
           done
-          find "$STAGE" \( -name '.env' -o -name '.env.local' -o -name '.git' -o -name 'phpunit.xml' -o -name 'composer.json' -o -name 'composer.lock' \) -delete || true
-          find "$STAGE" -type d \( -name '.git' -o -name 'tests' -o -name 'vendor' -o -name 'node_modules' -o -name 'logs' -o -name 'cache' \) -exec rm -rf {} + 2>/dev/null || true
+          find "$STAGE" \( -name '.env' -o -name '.env.local' -o -name '.git' -o -name 'phpunit.xml' -o -name 'composer.json' -o -name 'composer.lock' -o -name '*.map' \) -delete || true
+          find "$STAGE" -type d \( -name '.git' -o -name 'tests' -o -name 'vendor' -o -name 'node_modules' -o -name 'logs' -o -name 'cache' -o -name 'docs' \) -exec rm -rf {} + 2>/dev/null || true
           (cd "$OUT_DIR" && zip -qr "$ZIP_PATH" "$SLUG")
           python3 - <<'PY'
           import zipfile
@@ -91,7 +113,9 @@ jobs:
           roots = {n.split("/")[0] for n in names if n}
           assert roots == {"seoauto-seo-helper"}, roots
           assert z.testzip() is None
-          print("ZIP structure OK")
+          banned = [n for n in names if "/tests/" in n or n.endswith("/tests/") or "/docs/" in n or n.endswith("/docs/") or n.endswith(".map") or "/.git/" in n or "/node_modules/" in n]
+          assert not banned, banned[:20]
+          print("ZIP structure OK (no docs/tests/map/dev)")
           PY
 
       - name: Build release manifest + signature
