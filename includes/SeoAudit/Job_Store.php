@@ -22,6 +22,9 @@ final class Job_Store {
 
 	public const TYPE_AUDIT_SCAN = 'audit_scan';
 
+	/** Claim lock TTL in seconds (stale running jobs become reclaimable after this). */
+	public const LOCK_TTL_SECONDS = 120;
+
 	public function table(): string {
 		return Schema::jobs_table();
 	}
@@ -32,7 +35,8 @@ final class Job_Store {
 	public function create( array $data ): int {
 		global $wpdb;
 		$now = gmdate( 'Y-m-d H:i:s' );
-		$wpdb->insert(
+		$wpdb->last_error = '';
+		$result           = $wpdb->insert(
 			$this->table(),
 			array(
 				'request_id'    => (string) ( $data['request_id'] ?? '' ),
@@ -49,6 +53,9 @@ final class Job_Store {
 			),
 			array( '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%d', '%s', '%s', '%s' )
 		);
+		if ( false === $result || (int) $wpdb->insert_id <= 0 || '' !== (string) $wpdb->last_error ) {
+			return 0;
+		}
 		return (int) $wpdb->insert_id;
 	}
 
@@ -78,7 +85,31 @@ final class Job_Store {
 	}
 
 	/**
-	 * Claim next runnable job (queued/retrying, lock expired).
+	 * Active scan job (queued / retrying / running) — used to prevent duplicates.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	public function find_active( string $job_type = self::TYPE_AUDIT_SCAN ): ?array {
+		global $wpdb;
+		$table = $this->table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table}
+				WHERE job_type = %s
+				  AND status IN ('queued','retrying','running')
+				ORDER BY id ASC
+				LIMIT 1",
+				$job_type
+			),
+			ARRAY_A
+		);
+		return is_array( $row ) ? $this->normalize( $row ) : null;
+	}
+
+	/**
+	 * Claim next runnable job (queued/retrying, or stale running with expired lock).
+	 * Atomic UPDATE prevents two workers from claiming the same row.
 	 *
 	 * @return array<string,mixed>|null
 	 */
@@ -87,16 +118,24 @@ final class Job_Store {
 		$table = $this->table();
 		$now   = gmdate( 'Y-m-d H:i:s' );
 
+		$this->fail_exhausted_stale( $job_type, $now );
+
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT * FROM {$table}
 				WHERE job_type = %s
-				  AND status IN ('queued','retrying')
-				  AND (locked_until_gmt IS NULL OR locked_until_gmt < %s)
+				  AND (
+				    ( status IN ('queued','retrying')
+				      AND ( locked_until_gmt IS NULL OR locked_until_gmt < %s ) )
+				    OR ( status = 'running'
+				      AND locked_until_gmt IS NOT NULL
+				      AND locked_until_gmt < %s )
+				  )
 				ORDER BY id ASC
 				LIMIT 1",
 				$job_type,
+				$now,
 				$now
 			),
 			ARRAY_A
@@ -105,27 +144,148 @@ final class Job_Store {
 			return null;
 		}
 
-		$id       = (int) $row['id'];
-		$attempts = (int) ( $row['attempts'] ?? 0 ) + 1;
-		$lock_until = gmdate( 'Y-m-d H:i:s', time() + 120 );
+		$id         = (int) $row['id'];
+		$attempts   = (int) ( $row['attempts'] ?? 0 ) + 1;
+		$max        = (int) ( $row['max_attempts'] ?? 5 );
+		$prev_status = (string) ( $row['status'] ?? '' );
+
+		// Stale running reclaim that already exhausted retries → fail (do not loop forever).
+		if ( self::STATUS_RUNNING === $prev_status && $attempts > $max ) {
+			$this->mark_failed(
+				$id,
+				'max_attempts',
+				'Job exceeded max attempts after stale lock reclaim'
+			);
+			return null;
+		}
+
+		$lock_until = gmdate( 'Y-m-d H:i:s', time() + self::LOCK_TTL_SECONDS );
+
+		// Atomic claim: only one worker wins if status/lock still match.
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$updated = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$table}
 				SET status = 'running', attempts = %d, locked_until_gmt = %s,
 				    started_gmt = COALESCE(started_gmt, %s), updated_gmt = %s
-				WHERE id = %d AND status IN ('queued','retrying')",
+				WHERE id = %d
+				  AND job_type = %s
+				  AND (
+				    ( status IN ('queued','retrying')
+				      AND ( locked_until_gmt IS NULL OR locked_until_gmt < %s ) )
+				    OR ( status = 'running'
+				      AND locked_until_gmt IS NOT NULL
+				      AND locked_until_gmt < %s )
+				  )",
 				$attempts,
 				$lock_until,
 				$now,
 				$now,
-				$id
+				$id,
+				$job_type,
+				$now,
+				$now
 			)
 		);
 		if ( ! $updated ) {
 			return null;
 		}
 		return $this->get( $id );
+	}
+
+	/**
+	 * Mark expired running jobs that already hit max_attempts as failed.
+	 */
+	private function fail_exhausted_stale( string $job_type, string $now ): void {
+		global $wpdb;
+		$table = $this->table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$stale = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, run_id FROM {$table}
+				WHERE job_type = %s
+				  AND status = 'running'
+				  AND locked_until_gmt IS NOT NULL
+				  AND locked_until_gmt < %s
+				  AND attempts >= max_attempts",
+				$job_type,
+				$now
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $stale ) || $stale === array() ) {
+			return;
+		}
+		$message = 'Job exceeded max attempts while stuck running';
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table}
+				SET status = 'failed',
+				    error_code = 'max_attempts',
+				    error_message = %s,
+				    finished_gmt = %s,
+				    locked_until_gmt = NULL,
+				    updated_gmt = %s
+				WHERE job_type = %s
+				  AND status = 'running'
+				  AND locked_until_gmt IS NOT NULL
+				  AND locked_until_gmt < %s
+				  AND attempts >= max_attempts",
+				$message,
+				$now,
+				$now,
+				$job_type,
+				$now
+			)
+		);
+		foreach ( $stale as $row ) {
+			$run_id = (int) ( $row['run_id'] ?? 0 );
+			if ( $run_id > 0 ) {
+				$this->fail_linked_run( $run_id, 'max_attempts', $message, $now );
+			}
+		}
+	}
+
+	private function mark_failed( int $id, string $code, string $message ): void {
+		$now = gmdate( 'Y-m-d H:i:s' );
+		$job = $this->get( $id );
+		$this->update(
+			$id,
+			array(
+				'status'          => self::STATUS_FAILED,
+				'error_code'      => $code,
+				'error_message'   => $message,
+				'finished_gmt'    => $now,
+				'locked_until_gmt'=> null,
+			)
+		);
+		$run_id = (int) ( $job['run_id'] ?? 0 );
+		if ( $run_id > 0 ) {
+			$this->fail_linked_run( $run_id, $code, $message, $now );
+		}
+	}
+
+	/**
+	 * Keep audit run in sync when a job is force-failed (no secrets).
+	 */
+	private function fail_linked_run( int $run_id, string $code, string $message, string $now ): void {
+		global $wpdb;
+		$runs = Schema::audit_runs_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$runs}
+				SET status = 'failed', error_code = %s, error_message = %s,
+				    finished_gmt = %s, updated_gmt = %s
+				WHERE id = %d AND status NOT IN ('completed','cancelled','failed')",
+				$code,
+				$message,
+				$now,
+				$now,
+				$run_id
+			)
+		);
 	}
 
 	/**

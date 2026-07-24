@@ -29,8 +29,9 @@ final class Audit_Run_Store {
 	 */
 	public function create( array $data ): int {
 		global $wpdb;
-		$now = gmdate( 'Y-m-d H:i:s' );
-		$wpdb->insert(
+		$now              = gmdate( 'Y-m-d H:i:s' );
+		$wpdb->last_error = '';
+		$result           = $wpdb->insert(
 			$this->table(),
 			array(
 				'request_id'         => (string) ( $data['request_id'] ?? '' ),
@@ -49,6 +50,9 @@ final class Audit_Run_Store {
 			),
 			array( '%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%s', '%s', '%s', '%s' )
 		);
+		if ( false === $result || (int) $wpdb->insert_id <= 0 || '' !== (string) $wpdb->last_error ) {
+			return 0;
+		}
 		return (int) $wpdb->insert_id;
 	}
 

@@ -34,6 +34,32 @@ final class Jobs_Page {
 			(string) ( $caps['upgrade_url'] ?? '' )
 		);
 
+		$active = $this->runner->jobs()->find_active();
+		$cron   = $this->runner->cron_status();
+		if ( null !== $active ) {
+			echo '<div class="notice notice-info inline" style="margin:0 0 12px;padding:8px 12px;">';
+			echo '<p>' . esc_html(
+				sprintf(
+					/* translators: 1: job id 2: status */
+					__( 'Job hiện tại #%1$d đang %2$s. Làm mới trang để xem tiến độ.', 'seoauto-seo-helper' ),
+					(int) $active['id'],
+					(string) $active['status']
+				)
+			) . '</p>';
+			if ( ! empty( $cron['wp_cron_disabled'] ) ) {
+				echo '<p>' . esc_html__(
+					'DISABLE_WP_CRON đang bật — cần system cron gọi wp-cron.php.',
+					'seoauto-seo-helper'
+				) . '</p>';
+			} elseif ( in_array( (string) $active['status'], array( 'queued', 'retrying' ), true ) ) {
+				echo '<p>' . esc_html__(
+					'Job đang chờ WP-Cron. Nếu đứng lâu, kiểm tra cron của hosting.',
+					'seoauto-seo-helper'
+				) . '</p>';
+			}
+			echo '</div>';
+		}
+
 		$jobs = $this->runner->jobs()->recent( 30 );
 		echo '<div class="seoauto-helper-card">';
 		if ( $jobs === array() ) {

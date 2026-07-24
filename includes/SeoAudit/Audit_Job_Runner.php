@@ -100,11 +100,27 @@ final class Audit_Job_Runner {
 		if ( ! $this->feature_allowed() ) {
 			return new WP_Error(
 				'seoauto_feature_denied',
-				__( 'Gói hiện tại không có quyền seo_audit.', 'seoauto-seo-helper' ),
+				__( 'Gói hiện tại chưa được cấp quyền seo_audit. Vui lòng nâng cấp gói hoặc liên hệ SEOAuto để kích hoạt SEO Audit.', 'seoauto-seo-helper' ),
 				array( 'status' => 403 )
 			);
 		}
 		return true;
+	}
+
+	/**
+	 * Cron schedule health for admin UI (no secrets).
+	 *
+	 * @return array{scheduled:bool,next_ts:int,wp_cron_disabled:bool,hook:string,lock_ttl:int}
+	 */
+	public function cron_status(): array {
+		$next = wp_next_scheduled( self::HOOK_PROCESS );
+		return array(
+			'scheduled'         => false !== $next && (int) $next > 0,
+			'next_ts'           => false !== $next ? (int) $next : 0,
+			'wp_cron_disabled'  => defined( 'DISABLE_WP_CRON' ) && \DISABLE_WP_CRON,
+			'hook'              => self::HOOK_PROCESS,
+			'lock_ttl'          => Job_Store::LOCK_TTL_SECONDS,
+		);
 	}
 
 	private function feature_allowed(): bool {
@@ -151,6 +167,8 @@ final class Audit_Job_Runner {
 	 * @return array{ok:bool,job_id:int,run_id:int,request_id:string,idempotent_replay?:bool,message?:string}|WP_Error
 	 */
 	public function enqueue_scan( array $args = array() ): array|WP_Error {
+		global $wpdb;
+
 		$gate = $this->can_start_scan();
 		if ( $gate instanceof WP_Error ) {
 			return $gate;
@@ -173,6 +191,24 @@ final class Audit_Job_Runner {
 			);
 		}
 
+		// Prevent duplicate concurrent scans (queued / retrying / running).
+		$active = $this->jobs->find_active( Job_Store::TYPE_AUDIT_SCAN );
+		if ( null !== $active ) {
+			return array(
+				'ok'                => true,
+				'job_id'            => (int) $active['id'],
+				'run_id'            => (int) $active['run_id'],
+				'request_id'        => (string) ( $active['request_id'] ?? $request_id ),
+				'idempotent_replay' => true,
+				'message'           => sprintf(
+					/* translators: 1: job id 2: status */
+					__( 'Đã có job #%1$d đang ở trạng thái %2$s — không tạo job mới. Làm mới trang để xem tiến độ.', 'seoauto-seo-helper' ),
+					(int) $active['id'],
+					(string) ( $active['status'] ?? '' )
+				),
+			);
+		}
+
 		$types = $args['post_types'] ?? Object_Context::audit_post_types();
 		if ( ! is_array( $types ) || $types === array() ) {
 			$types = Object_Context::audit_post_types();
@@ -184,7 +220,7 @@ final class Audit_Job_Runner {
 		}
 		$batch = max( 1, min( 50, (int) ( $args['batch_size'] ?? Audit_Engine::BATCH_SIZE ) ) );
 
-		$total = $this->engine->count_objects( $types );
+		$total  = $this->engine->count_objects( $types );
 		$run_id = $this->runs->create(
 			array(
 				'request_id'    => $request_id,
@@ -196,6 +232,24 @@ final class Audit_Job_Runner {
 				'meta'          => array( 'site_checked' => false ),
 			)
 		);
+
+		$run_db_error = isset( $wpdb ) ? (string) $wpdb->last_error : '';
+		if ( $run_id <= 0 || '' !== $run_db_error ) {
+			$this->audit->log_error(
+				'audit_scan_enqueue_failed',
+				'db_insert_run',
+				array(
+					'request_id' => $request_id,
+					'run_id'     => $run_id,
+					'message'    => $this->safe_db_message( $run_db_error ),
+				)
+			);
+			return new WP_Error(
+				'seoauto_audit_db_error',
+				__( 'Không tạo được bản ghi audit run (lỗi cơ sở dữ liệu). Kiểm tra bảng seoauto_helper_audit_runs và thử lại.', 'seoauto-seo-helper' ),
+				array( 'status' => 500 )
+			);
+		}
 
 		$job_id = $this->jobs->create(
 			array(
@@ -210,6 +264,34 @@ final class Audit_Job_Runner {
 				),
 			)
 		);
+
+		$job_db_error = isset( $wpdb ) ? (string) $wpdb->last_error : '';
+		if ( $job_id <= 0 || '' !== $job_db_error ) {
+			$this->runs->update(
+				$run_id,
+				array(
+					'status'        => Audit_Run_Store::STATUS_FAILED,
+					'error_code'    => 'db_insert_job',
+					'error_message' => 'Failed to create job row',
+					'finished_gmt'  => gmdate( 'Y-m-d H:i:s' ),
+				)
+			);
+			$this->audit->log_error(
+				'audit_scan_enqueue_failed',
+				'db_insert_job',
+				array(
+					'request_id' => $request_id,
+					'run_id'     => $run_id,
+					'job_id'     => $job_id,
+					'message'    => $this->safe_db_message( $job_db_error ),
+				)
+			);
+			return new WP_Error(
+				'seoauto_audit_db_error',
+				__( 'Không tạo được job quét SEO (lỗi cơ sở dữ liệu). Kiểm tra bảng seoauto_helper_jobs và thử lại.', 'seoauto-seo-helper' ),
+				array( 'status' => 500 )
+			);
+		}
 
 		$this->runs->update( $run_id, array( 'job_id' => $job_id ) );
 
@@ -226,9 +308,7 @@ final class Audit_Job_Runner {
 
 		// Spawn cron soon without blocking the HTTP request.
 		$this->ensure_scheduled();
-		if ( ! wp_next_scheduled( self::HOOK_PROCESS ) ) {
-			wp_schedule_single_event( time() + 5, self::HOOK_PROCESS );
-		}
+		wp_schedule_single_event( time() + 5, self::HOOK_PROCESS );
 		spawn_cron();
 
 		return array(
@@ -236,8 +316,17 @@ final class Audit_Job_Runner {
 			'job_id'     => $job_id,
 			'run_id'     => $run_id,
 			'request_id' => $request_id,
-			'message'    => __( 'Đã xếp hàng scan (WP-Cron batch).', 'seoauto-seo-helper' ),
+			'message'    => __( 'Đã xếp hàng scan (WP-Cron batch). Làm mới trang để theo dõi tiến độ nếu cron chậm.', 'seoauto-seo-helper' ),
 		);
+	}
+
+	/**
+	 * Strip anything that could look like secrets from DB error text.
+	 */
+	private function safe_db_message( string $raw ): string {
+		$msg = wp_strip_all_tags( $raw );
+		$msg = preg_replace( '/[A-Za-z0-9+\/=]{40,}/', '[redacted]', $msg ) ?? $msg;
+		return mb_substr( $msg, 0, 200 );
 	}
 
 	/**
@@ -358,14 +447,16 @@ final class Audit_Job_Runner {
 		} catch ( \Throwable $e ) {
 			$attempts = (int) ( $job['attempts'] ?? 0 );
 			$max      = (int) ( $job['max_attempts'] ?? 5 );
+			$safe_msg = mb_substr( wp_strip_all_tags( $e->getMessage() ), 0, 200 );
 			if ( $attempts >= $max ) {
 				$this->jobs->update(
 					$job_id,
 					array(
-						'status'        => Job_Store::STATUS_FAILED,
-						'error_code'    => 'exception',
-						'error_message' => $e->getMessage(),
-						'finished_gmt'  => gmdate( 'Y-m-d H:i:s' ),
+						'status'          => Job_Store::STATUS_FAILED,
+						'error_code'      => 'exception',
+						'error_message'   => $safe_msg,
+						'finished_gmt'    => gmdate( 'Y-m-d H:i:s' ),
+						'locked_until_gmt'=> null,
 					)
 				);
 				$this->runs->update(
@@ -373,8 +464,17 @@ final class Audit_Job_Runner {
 					array(
 						'status'        => Audit_Run_Store::STATUS_FAILED,
 						'error_code'    => 'exception',
-						'error_message' => $e->getMessage(),
+						'error_message' => $safe_msg,
 						'finished_gmt'  => gmdate( 'Y-m-d H:i:s' ),
+					)
+				);
+				$this->audit->log_error(
+					'audit_scan_failed',
+					'exception',
+					array(
+						'job_id'  => $job_id,
+						'run_id'  => $run_id,
+						'message' => $safe_msg,
 					)
 				);
 			} else {
@@ -383,8 +483,8 @@ final class Audit_Job_Runner {
 					array(
 						'status'          => Job_Store::STATUS_RETRYING,
 						'error_code'      => 'exception',
-						'error_message'   => $e->getMessage(),
-						'locked_until_gmt'=> gmdate( 'Y-m-d H:i:s', time() + ( 30 * $attempts ) ),
+						'error_message'   => $safe_msg,
+						'locked_until_gmt'=> gmdate( 'Y-m-d H:i:s', time() + ( 30 * max( 1, $attempts ) ) ),
 					)
 				);
 			}

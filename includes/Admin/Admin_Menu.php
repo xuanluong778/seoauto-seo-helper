@@ -272,18 +272,42 @@ final class Admin_Menu {
 			)
 		);
 		if ( is_wp_error( $result ) ) {
-			add_settings_error( 'seoauto_helper', 'audit_denied', $result->get_error_message(), 'error' );
+			$code = $result->get_error_code();
+			$msg  = $result->get_error_message();
+			if ( 'seoauto_feature_denied' === $code ) {
+				$msg = __(
+					'Gói hiện tại chưa được cấp quyền seo_audit. Nâng cấp gói hoặc liên hệ SEOAuto để kích hoạt SEO Audit (seoauto_feature_denied).',
+					'seoauto-seo-helper'
+				);
+			}
+			add_settings_error(
+				'seoauto_helper',
+				sanitize_key( $code !== '' ? $code : 'audit_denied' ),
+				$msg,
+				'error'
+			);
 			return;
+		}
+		$message = isset( $result['message'] ) && is_string( $result['message'] ) && $result['message'] !== ''
+			? $result['message']
+			: sprintf(
+				/* translators: 1: job id 2: run id */
+				__( 'Đã xếp hàng scan — Job #%1$d / Run #%2$d. Làm mới trang để theo dõi tiến độ.', 'seoauto-seo-helper' ),
+				(int) $result['job_id'],
+				(int) $result['run_id']
+			);
+		if ( empty( $result['idempotent_replay'] ) ) {
+			$message = sprintf(
+				/* translators: 1: job id 2: run id */
+				__( 'Đã xếp hàng scan — Job #%1$d / Run #%2$d. Làm mới trang để theo dõi tiến độ (WP-Cron).', 'seoauto-seo-helper' ),
+				(int) $result['job_id'],
+				(int) $result['run_id']
+			);
 		}
 		add_settings_error(
 			'seoauto_helper',
-			'audit_queued',
-			sprintf(
-				/* translators: 1: job id 2: run id */
-				__( 'Đã xếp hàng scan — Job #%1$d / Run #%2$d.', 'seoauto-seo-helper' ),
-				(int) $result['job_id'],
-				(int) $result['run_id']
-			),
+			empty( $result['idempotent_replay'] ) ? 'audit_queued' : 'audit_already_active',
+			$message,
 			'updated'
 		);
 	}

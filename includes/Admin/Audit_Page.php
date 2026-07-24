@@ -11,7 +11,9 @@ namespace SEOAuto\SEOHelper\Admin;
 
 use SEOAuto\SEOHelper\Entitlement\Entitlement_Manager;
 use SEOAuto\SEOHelper\SeoAudit\Audit_Job_Runner;
+use SEOAuto\SEOHelper\SeoAudit\Job_Store;
 use SEOAuto\SEOHelper\SeoAudit\Object_Context;
+use WP_Error;
 
 final class Audit_Page {
 
@@ -61,15 +63,8 @@ final class Audit_Page {
 		echo esc_html( implode( ', ', $this->runner->engine()->checker_ids() ) );
 		echo '</p>';
 
-		if ( $this->entitlement->is_locked() ) {
-			echo '<p class="description">' . esc_html__( 'LOCKED — không thể tạo scan mới.', 'seoauto-seo-helper' ) . '</p>';
-		} else {
-			echo '<form method="post">';
-			wp_nonce_field( 'seoauto_helper_admin' );
-			echo '<input type="hidden" name="seoauto_helper_action" value="audit_start_scan" />';
-			submit_button( __( 'Xếp hàng quét SEO', 'seoauto-seo-helper' ), 'primary', 'submit', false );
-			echo '</form>';
-		}
+		$this->render_active_job_notice();
+		$this->render_start_controls();
 		echo '</div>';
 
 		$runs = $this->runner->runs()->recent( 15 );
@@ -96,6 +91,120 @@ final class Audit_Page {
 				echo '</tr>';
 			}
 			echo '</tbody></table>';
+		}
+		echo '</div>';
+	}
+
+	private function render_start_controls(): void {
+		$has_feature = $this->entitlement->has_feature( Audit_Job_Runner::FEATURE );
+		$gate        = $this->runner->can_start_scan();
+		$can_start   = $has_feature && true === $gate;
+
+		if ( $can_start ) {
+			echo '<form method="post">';
+			wp_nonce_field( 'seoauto_helper_admin' );
+			echo '<input type="hidden" name="seoauto_helper_action" value="audit_start_scan" />';
+			submit_button( __( 'Xếp hàng quét SEO', 'seoauto-seo-helper' ), 'primary', 'submit', false );
+			echo '</form>';
+			return;
+		}
+
+		$reason = $this->deny_reason( $has_feature, $gate );
+		echo '<div class="notice notice-warning inline" style="margin:12px 0;padding:8px 12px;">';
+		echo '<p><strong>' . esc_html__( 'Không thể bắt đầu quét SEO.', 'seoauto-seo-helper' ) . '</strong></p>';
+		echo '<p>' . esc_html( $reason ) . '</p>';
+		echo '</div>';
+		echo '<p>';
+		submit_button(
+			__( 'Xếp hàng quét SEO', 'seoauto-seo-helper' ),
+			'primary',
+			'submit',
+			false,
+			array(
+				'disabled' => 'disabled',
+				'id'       => 'seoauto-audit-start-disabled',
+			)
+		);
+		echo '</p>';
+	}
+
+	/**
+	 * @param bool|WP_Error $gate
+	 */
+	private function deny_reason( bool $has_feature, bool|WP_Error $gate ): string {
+		if ( ! $has_feature ) {
+			return __(
+				'Gói hiện tại chưa được cấp quyền seo_audit. Nâng cấp gói hoặc liên hệ SEOAuto để kích hoạt SEO Audit (mã: seoauto_feature_denied).',
+				'seoauto-seo-helper'
+			);
+		}
+		if ( $gate instanceof WP_Error ) {
+			$code = $gate->get_error_code();
+			$msg  = $gate->get_error_message();
+			if ( $code !== '' && ! str_contains( $msg, $code ) ) {
+				return $msg . ' (' . $code . ')';
+			}
+			return $msg;
+		}
+		return __( 'Không thể bắt đầu quét lúc này.', 'seoauto-seo-helper' );
+	}
+
+	private function render_active_job_notice(): void {
+		$active = $this->runner->jobs()->find_active( Job_Store::TYPE_AUDIT_SCAN );
+		if ( null === $active ) {
+			return;
+		}
+
+		$cron   = $this->runner->cron_status();
+		$run_id = (int) ( $active['run_id'] ?? 0 );
+		$run    = $run_id > 0 ? $this->runner->runs()->get( $run_id ) : null;
+		$status = (string) ( $active['status'] ?? '' );
+
+		echo '<div class="notice notice-info inline" style="margin:12px 0;padding:8px 12px;">';
+		echo '<p><strong>' . esc_html__( 'Đang có job quét SEO', 'seoauto-seo-helper' ) . '</strong></p>';
+		echo '<p>' . esc_html(
+			sprintf(
+				/* translators: 1: job id 2: status 3: run id */
+				__( 'Job #%1$d — trạng thái: %2$s (Run #%3$d). Làm mới trang để cập nhật tiến độ.', 'seoauto-seo-helper' ),
+				(int) $active['id'],
+				$status,
+				$run_id
+			)
+		) . '</p>';
+		if ( null !== $run ) {
+			echo '<p>' . esc_html(
+				sprintf(
+					/* translators: 1: processed 2: total */
+					__( 'Tiến độ: %1$d / %2$d đối tượng.', 'seoauto-seo-helper' ),
+					(int) $run['processed_objects'],
+					(int) $run['total_objects']
+				)
+			) . '</p>';
+		}
+		if ( in_array( $status, array( Job_Store::STATUS_QUEUED, Job_Store::STATUS_RETRYING ), true ) ) {
+			echo '<p>' . esc_html__(
+				'Job đang chờ WP-Cron. Nếu tiến độ không đổi sau vài phút, kiểm tra DISABLE_WP_CRON, system cron, hoặc vào tab Công việc quét.',
+				'seoauto-seo-helper'
+			) . '</p>';
+		}
+		if ( ! empty( $cron['wp_cron_disabled'] ) ) {
+			echo '<p>' . esc_html__(
+				'Cảnh báo: DISABLE_WP_CRON đang bật — cần system cron gọi wp-cron.php, nếu không job sẽ đứng ở trạng thái chờ.',
+				'seoauto-seo-helper'
+			) . '</p>';
+		} elseif ( empty( $cron['scheduled'] ) ) {
+			echo '<p>' . esc_html__(
+				'Hook cron audit chưa được lên lịch. Thử xếp hàng lại hoặc kích hoạt lại plugin để đăng ký cron.',
+				'seoauto-seo-helper'
+			) . '</p>';
+		} else {
+			echo '<p class="description">' . esc_html(
+				sprintf(
+					/* translators: %s: cron hook name */
+					__( 'Cron hook: %s (mỗi phút).', 'seoauto-seo-helper' ),
+					(string) $cron['hook']
+				)
+			) . '</p>';
 		}
 		echo '</div>';
 	}
