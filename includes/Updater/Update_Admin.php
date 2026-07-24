@@ -33,10 +33,14 @@ final class Update_Admin {
 
 		$result = $this->manager->force_check();
 		if ( is_wp_error( $result ) ) {
+			$code = $result->get_error_code();
+			$message = 'seoauto_update_not_paired' === $code
+				? __( 'Website chưa ghép nối SEOAuto. Hãy ghép nối trước khi kiểm tra cập nhật.', 'seoauto-seo-helper' )
+				: __( 'Không kiểm tra được cập nhật ngay lúc này. Vui lòng thử lại sau.', 'seoauto-seo-helper' );
 			add_settings_error(
 				'seoauto_helper',
 				'update_check_fail',
-				__( 'Không kiểm tra được cập nhật ngay lúc này. Vui lòng thử lại sau.', 'seoauto-seo-helper' ),
+				$message,
 				'error'
 			);
 			return;

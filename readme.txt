@@ -4,7 +4,7 @@ Tags: seo, wordpress, seoauto, schema, open-graph
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 1.2.0-rc.4
+Stable tag: 1.2.0-rc.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,11 @@ SEOAuto SEO Helper ghép nối site WordPress với nền tảng SEOAuto qua mã
 3. Vào Settings → SEOAuto SEO Helper, nhập mã SA-XXXX-XXXX từ SEOAuto
 
 == Changelog ==
+
+= 1.2.0-rc.5 =
+* Updater: RC/beta builds default to beta channel so newer RCs are discoverable.
+* Overview: stop false “latest” badge when unpaired or not yet checked.
+* Connection: HMAC credentials keyed on site_id + secret (stale status cannot block updates).
 
 = 1.2.0-rc.4 =
 * SEO Audit: gate UI by seo_audit feature with clear deny reason.

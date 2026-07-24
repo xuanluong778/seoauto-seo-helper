@@ -81,6 +81,7 @@ spl_autoload_register(
 );
 
 use SEOAuto\SEOHelper\Updater\Package_Verifier;
+use SEOAuto\SEOHelper\Updater\Update_Manager;
 use SEOAuto\SEOHelper\Updater\Update_Response;
 
 $v = new Package_Verifier();
@@ -154,6 +155,14 @@ check( 'update object new_version', is_object( $obj ) && $obj->new_version === '
 check( 'update object package set', is_object( $obj ) && $obj->package !== '' );
 
 @unlink( $tmp );
+
+echo "\n=== Update channel resolve ===\n";
+check( 'explicit stable wins', 'stable' === Update_Manager::resolve_channel( 'stable', '1.2.0-rc.3' ) );
+check( 'explicit beta wins', 'beta' === Update_Manager::resolve_channel( 'beta', '1.2.0' ) );
+check( 'empty + rc → beta', 'beta' === Update_Manager::resolve_channel( '', '1.2.0-rc.3' ) );
+check( 'empty + stable → stable', 'stable' === Update_Manager::resolve_channel( '', '1.2.0' ) );
+check( 'is_prerelease rc.4', true === Update_Manager::is_prerelease_version( '1.2.0-rc.4' ) );
+check( 'is_prerelease stable', false === Update_Manager::is_prerelease_version( '1.2.0' ) );
 
 echo $failed === 0 ? "\nALL PASS\n" : "\nFAILED: {$failed}\n";
 exit( $failed > 0 ? 1 : 0 );

@@ -246,8 +246,26 @@ final class Update_Manager {
 	}
 
 	public function channel(): string {
-		$ch = sanitize_key( (string) $this->connection->option( self::CHANNEL_OPTION, 'stable' ) );
-		return in_array( $ch, array( 'stable', 'beta' ), true ) ? $ch : 'stable';
+		return self::resolve_channel(
+			(string) $this->connection->option( self::CHANNEL_OPTION, '' ),
+			defined( 'SEOAUTO_HELPER_VERSION' ) ? (string) SEOAUTO_HELPER_VERSION : '0'
+		);
+	}
+
+	/**
+	 * Explicit option wins; otherwise pre-release builds check the beta channel
+	 * so RC canaries can see newer RCs without a manual channel toggle.
+	 */
+	public static function resolve_channel( string $stored, string $plugin_version ): string {
+		$ch = sanitize_key( $stored );
+		if ( in_array( $ch, array( 'stable', 'beta' ), true ) ) {
+			return $ch;
+		}
+		return self::is_prerelease_version( $plugin_version ) ? 'beta' : 'stable';
+	}
+
+	public static function is_prerelease_version( string $version ): bool {
+		return (bool) preg_match( '/-(?:rc|beta|alpha)(?:\.|$)/i', $version );
 	}
 
 	/**

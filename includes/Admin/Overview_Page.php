@@ -66,7 +66,14 @@ final class Overview_Page {
 					<tr>
 						<th scope="row"><?php echo esc_html__( 'Trạng thái cập nhật', 'seoauto-seo-helper' ); ?></th>
 						<td>
-							<?php if ( $has_update ) : ?>
+							<?php if ( ! $paired ) : ?>
+								<span class="seoauto-helper-badge is-warn">
+									<?php echo esc_html__( 'Cần ghép nối để kiểm tra cập nhật', 'seoauto-seo-helper' ); ?>
+								</span>
+								<p class="description">
+									<?php echo esc_html__( 'Cập nhật riêng tư chỉ hoạt động sau khi website đã ghép nối với SEOAuto.', 'seoauto-seo-helper' ); ?>
+								</p>
+							<?php elseif ( $has_update ) : ?>
 								<span class="seoauto-helper-badge is-warn">
 									<?php
 									echo esc_html(
@@ -78,14 +85,24 @@ final class Overview_Page {
 									);
 									?>
 								</span>
-							<?php else : ?>
+								<p class="description">
+									<?php echo esc_html__( 'Bạn cũng có thể cập nhật tại Plugins → Plugin đã cài đặt hoặc Bảng tin → Cập nhật.', 'seoauto-seo-helper' ); ?>
+								</p>
+							<?php elseif ( $cached instanceof Update_Response ) : ?>
 								<span class="seoauto-helper-badge is-ok">
 									<?php echo esc_html__( 'Đang dùng bản mới nhất', 'seoauto-seo-helper' ); ?>
 								</span>
+								<p class="description">
+									<?php echo esc_html__( 'Bạn cũng có thể cập nhật tại Plugins → Plugin đã cài đặt hoặc Bảng tin → Cập nhật.', 'seoauto-seo-helper' ); ?>
+								</p>
+							<?php else : ?>
+								<span class="seoauto-helper-badge">
+									<?php echo esc_html__( 'Chưa kiểm tra cập nhật', 'seoauto-seo-helper' ); ?>
+								</span>
+								<p class="description">
+									<?php echo esc_html__( 'Nhấn “Kiểm tra cập nhật” để hỏi SEOAuto có bản mới hay không.', 'seoauto-seo-helper' ); ?>
+								</p>
 							<?php endif; ?>
-							<p class="description">
-								<?php echo esc_html__( 'Bạn cũng có thể cập nhật tại Plugins → Plugin đã cài đặt hoặc Bảng tin → Cập nhật.', 'seoauto-seo-helper' ); ?>
-							</p>
 						</td>
 					</tr>
 				</table>

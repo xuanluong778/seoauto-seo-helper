@@ -104,13 +104,10 @@ final class Connection_Manager {
 	}
 
 	/**
-	 * Paired credentials exist (connected or locked). Used for HMAC on read-only routes.
+	 * Paired credentials exist. Used for HMAC on read-only routes (updates, entitlement).
+	 * Keys on site_id + secret so a stale status flag cannot block private updates.
 	 */
 	public function has_credentials(): bool {
-		$status = (string) $this->option( 'status', self::STATUS_DISCONNECTED );
-		if ( ! in_array( $status, array( self::STATUS_CONNECTED, self::STATUS_LOCKED ), true ) ) {
-			return false;
-		}
 		return $this->site_id() !== '' && $this->site_secret() !== '';
 	}
 

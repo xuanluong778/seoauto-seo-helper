@@ -3,7 +3,7 @@
  * Plugin Name:       SEOAuto SEO Helper
  * Plugin URI:        https://seoauto.vn
  * Description:       Kết nối WordPress với SEOAuto — tối ưu Open Graph, Schema, đồng bộ Rank Math/Yoast khi đăng bài từ SEOAuto.
- * Version:           1.2.0-rc.4
+ * Version:           1.2.0-rc.5
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            SEOAuto
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SEOAUTO_HELPER_VERSION', '1.2.0-rc.4' );
+define( 'SEOAUTO_HELPER_VERSION', '1.2.0-rc.5' );
 define( 'SEOAUTO_HELPER_FILE', __FILE__ );
 define( 'SEOAUTO_HELPER_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SEOAUTO_HELPER_URL', plugin_dir_url( __FILE__ ) );
